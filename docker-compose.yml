@@ -1,0 +1,96 @@
+name: vnpy-trading-bot
+
+services:
+  ib-gateway:
+    image: ghcr.io/gnzsnz/ib-gateway:stable
+    container_name: ib-gateway
+    restart: unless-stopped
+    environment:
+      TWS_USERID: ${TWS_USERID}
+      TWS_PASSWORD_FILE: /run/secrets/tws_password
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      TWOFA_TIMEOUT_ACTION: restart
+      RELOGIN_AFTER_TWOFA_TIMEOUT: yes
+      AUTO_RESTART_TIME: ${AUTO_RESTART_TIME:-}
+      TWOFA_EXIT_INTERVAL: 60
+      TWS_ACCEPT_INCOMING: accept
+      READ_ONLY_API: no
+      EXISTING_SESSION_DETECTED_ACTION: primary
+      ALLOW_BLIND_TRADING: no
+      TIME_ZONE: ${TIME_ZONE:-Etc/UTC}
+      VNC_SERVER_PASSWORD_FILE: ${VNC_SERVER_PASSWORD_FILE:-}
+    secrets:
+      - tws_password
+      - vnc_password
+    volumes:
+      - ib-gateway-config:/home/ibgateway/tws_settings
+    networks:
+      - trading
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/4004' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "127.0.0.1:4001:4003"
+      - "127.0.0.1:4002:4004"
+      - "127.0.0.1:${VNC_PORT:-5900}:5900"
+
+  trading-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trading-bot
+    restart: unless-stopped
+    depends_on:
+      ib-gateway:
+        condition: service_healthy
+    environment:
+      - IB_GATEWAY_HOST=ib-gateway
+      - IB_GATEWAY_PORT=${IB_GATEWAY_PORT:-4004}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./config:/app/config:ro
+      - ./app/strategies:/app/strategies:ro
+      - bot-data:/app/data
+      - bot-logs:/app/logs
+    networks:
+      - trading
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  ib-gateway-config:
+    driver: local
+  bot-data:
+    driver: local
+  bot-logs:
+    driver: local
+
+networks:
+  trading:
+    driver: bridge
+
+secrets:
+  tws_password:
+    file: ./secrets/tws_password.txt
+  vnc_password:
+    file: ./secrets/vnc_password.txt
