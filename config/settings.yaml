@@ -1,0 +1,39 @@
+# vnpy-trading-bot Configuration
+# ===========================
+# This file contains configuration for the trading bot.
+# Environment variables can override these values.
+#
+# Note: Trading strategy parameters are now defined in the strategy class itself.
+# See: app/strategies/example_strategy.py
+
+# Database Configuration
+database:
+  path: "/app/data/trading.db"
+  backup-enabled: true
+  backup-interval-hours: 24
+  backup-retention-days: 30
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  file: "/app/logs/bot.log"
+  rotation: "100 MB"
+  retention: "7 days"
+  json-format: true
+
+# IB Gateway Configuration
+gateway:
+  host: "ib-gateway"
+  port: 4004
+  client-id: 1
+  connect-timeout: 30
+  auto-reconnect: true
+  reconnect-interval: 5
+  max-reconnect-attempts: 10
+
+# Health Check Configuration
+health:
+  enabled: true
+  interval-seconds: 30
+  gateway-timeout: 5
+  unhealthy-threshold: 3
