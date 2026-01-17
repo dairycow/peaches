@@ -158,10 +158,6 @@ jobs:
             echo "=== Authenticating with GitHub CLI ==="
             echo "$GITHUB_TOKEN" | gh auth login --with-token --hostname github.com
             
-            echo "=== Logging in to GitHub Container Registry ==="
-            GITHUB_PAT=$(gh auth token)
-            echo "$GITHUB_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
             echo "=== Setting up git credentials ==="
             gh auth setup-git
             
