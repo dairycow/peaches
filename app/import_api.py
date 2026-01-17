@@ -136,7 +136,7 @@ async def stop_scheduler() -> SchedulerStatusResponse:
     """
     scheduler = get_scheduler()
 
-    if scheduler.is_running():
+    if not scheduler.is_running():
         return SchedulerStatusResponse(
             enabled=config.historical_data.import_enabled,
             running=False,
@@ -145,7 +145,7 @@ async def stop_scheduler() -> SchedulerStatusResponse:
             timezone="Australia/Sydney",
         )
 
-    await scheduler.start()
+    await scheduler.stop()
 
     return SchedulerStatusResponse(
         enabled=config.historical_data.import_enabled,

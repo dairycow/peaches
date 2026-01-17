@@ -90,7 +90,8 @@ async def startup() -> None:
     try:
         await _initialize_gateway()
         await _initialize_strategies()
-        await scheduler.start()
+        if config.historical_data.import_enabled:
+            await scheduler.start()
         _start_health_checks()
         logger.info("Application started successfully")
     except Exception as e:
@@ -178,19 +179,6 @@ def _start_health_checks() -> None:
 
     logger.info("Health checks enabled")
     _health_check_task = asyncio.create_task(_health_check_loop())
-
-
-def _start_scheduler() -> None:
-    """Start the import scheduler."""
-    if not config.historical_data.import_enabled:
-        logger.info("Import scheduler disabled")
-        return
-
-    logger.info("Import scheduler enabled")
-    try:
-        await scheduler.start()
-    except Exception as e:
-        logger.error(f"Failed to start scheduler: {e}")
 
 
 async def _health_check_loop() -> None:
