@@ -17,6 +17,7 @@ from vnpy.trader.object import (
     SubscribeRequest,
     TradeData,
 )
+from vnpy_ib import IbGateway
 
 from app.config import config
 
@@ -59,19 +60,21 @@ class IBGatewayConnection:
         self.event_engine = EventEngine()
         self.main_engine = MainEngine(self.event_engine)
 
-        from vnpy_ib import IbGateway
-
         self.main_engine.add_gateway(IbGateway)
 
-        setting: dict = {
+        setting: dict[str, str] = {
             "TWS_ADDRESS": config.gateway.host,
             "TWS_PORT": str(config.gateway.port),
             "TWS_CLIENT_ID": str(config.gateway.client_id),
         }
 
         try:
+            if self.main_engine is None:
+                raise RuntimeError("Main engine not initialized")
+
+            main_engine = self.main_engine
             await asyncio.get_event_loop().run_in_executor(
-                None, lambda: self.main_engine.connect(setting, "IB")
+                None, lambda: main_engine.connect(setting, "IB")
             )
 
             await self._wait_for_connection(timeout=config.gateway.connect_timeout)
@@ -107,7 +110,7 @@ class IBGatewayConnection:
 
             if self.main_engine and self.main_engine.get_gateway("IB"):
                 self.gateway = self.main_engine.get_gateway("IB")
-                if self.gateway and self.gateway.connected:
+                if self.connected:
                     return
 
         raise TimeoutError(f"IB Gateway connection timeout after {timeout} seconds")
@@ -227,7 +230,7 @@ class IBGatewayConnection:
         Returns:
             True if connected, False otherwise
         """
-        return self.connected and self.gateway is not None and self.gateway.connected
+        return bool(self.connected)
 
 
 class GatewayManager:

@@ -2,6 +2,7 @@
 
 import asyncio
 import sys
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
@@ -15,9 +16,12 @@ from app.config import config
 from app.gateway import gateway_manager
 from app.health import health_checker
 from app.health import router as health_router
+from app.import_api import router as import_router
+from app.scheduler import get_scheduler
 from app.strategies import DEFAULT_PARAMETERS, STRATEGY_NAME, VT_SYMBOL
 
 cta_engine: CtaEngine | None = None
+scheduler = get_scheduler()
 
 
 def initialize_cta_engine(main_engine: MainEngine, event_engine: EventEngine) -> CtaEngine:
@@ -54,7 +58,7 @@ app = FastAPI(
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan manager.
 
     Args:
@@ -71,9 +75,10 @@ async def lifespan(app: FastAPI):
 
 
 app.include_router(health_router)
+app.include_router(import_router)
 
 
-_health_check_task: asyncio.Task | None = None
+_health_check_task: asyncio.Task[None] | None = None
 
 
 async def startup() -> None:
@@ -86,6 +91,7 @@ async def startup() -> None:
         await _initialize_gateway()
         await _initialize_strategies()
         _start_health_checks()
+        _start_scheduler()
         logger.info("Application started successfully")
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
@@ -174,6 +180,19 @@ def _start_health_checks() -> None:
     _health_check_task = asyncio.create_task(_health_check_loop())
 
 
+def _start_scheduler() -> None:
+    """Start the import scheduler."""
+    if not config.historical_data.import_enabled:
+        logger.info("Import scheduler disabled")
+        return
+
+    logger.info("Import scheduler enabled")
+    try:
+        scheduler.start()
+    except Exception as e:
+        logger.error(f"Failed to start scheduler: {e}")
+
+
 async def _health_check_loop() -> None:
     """Run periodic health checks."""
     while True:
@@ -214,6 +233,9 @@ async def shutdown() -> None:
 
         if cta_engine is not None:
             cta_engine.stop_all_strategies()
+
+        if scheduler.is_running():
+            scheduler.stop()
 
         await gateway_manager.stop()
         logger.info("Application shutdown complete")

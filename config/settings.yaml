@@ -1,9 +1,9 @@
 # vnpy-trading-bot Configuration
 # ===========================
-# This file contains configuration for the trading bot.
+# This file contains configuration for trading bot.
 # Environment variables can override these values.
 #
-# Note: Trading strategy parameters are now defined in the strategy class itself.
+# Note: Trading strategy parameters are now defined in strategy class itself.
 # See: app/strategies/example_strategy.py
 
 # Database Configuration
@@ -37,3 +37,17 @@ health:
   interval-seconds: 30
   gateway-timeout: 5
   unhealthy-threshold: 3
+
+# Historical Data Configuration
+historical-data:
+  csv-dir: "/app/data/csv"
+  db-path: "/app/data/historical.db"
+  import-enabled: true
+
+# CoolTrader Configuration
+cooltrader:
+  username: "${COOLTRADER_USERNAME}"
+  password: "${COOLTRADER_PASSWORD}"
+  base-url: "https://data.cooltrader.com.au"
+  download-schedule: "0 10 * * *"
+  import-schedule: "5 10 * * *"

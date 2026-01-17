@@ -91,7 +91,7 @@ async def health_check() -> HealthResponse:
 
 
 @router.get("/gateway")
-async def check_gateway() -> dict:
+async def check_gateway() -> dict[str, bool | int]:
     """Check gateway connection status.
 
     Returns:
@@ -105,7 +105,7 @@ async def check_gateway() -> dict:
 
 
 @router.get("/ready")
-async def readiness_check() -> dict:
+async def readiness_check() -> dict[str, bool | HealthStatus]:
     """Readiness check endpoint.
 
     Returns:
@@ -132,7 +132,7 @@ async def readiness_check() -> dict:
 
 
 @router.get("/live")
-async def liveness_check() -> dict:
+async def liveness_check() -> dict[str, bool | float]:
     """Liveness check endpoint.
 
     Returns:
