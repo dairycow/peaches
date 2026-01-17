@@ -122,6 +122,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, test, lint]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -147,6 +149,11 @@ jobs:
             echo "Branch: ${{ github.ref_name }}"
             echo "Commit: ${{ github.sha }}"
             
+            echo "=== Setting Docker image ==="
+            export TRADING_BOT_IMAGE="ghcr.io/${{ github.repository }}:${{ github.sha }}"
+            echo "Branch: ${{ github.ref_name }}"
+            echo "Commit: ${{ github.sha }}"
+            
             echo "=== Authenticating with GitHub CLI ==="
             echo "$GITHUB_TOKEN" | gh auth login --with-token --hostname github.com
             
@@ -166,7 +173,7 @@ jobs:
             docker compose up -d
             
             echo "=== Waiting for services to be healthy ==="
-            sleep 30
+            timeout 120 bash -c 'until docker compose ps --format json | jq -e ".[] | select(.Health == \"healthy\") | .Service" >/dev/null; do sleep 5; done'
             
             docker compose ps
             
