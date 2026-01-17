@@ -129,6 +129,8 @@ jobs:
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -145,8 +147,11 @@ jobs:
             echo "Branch: ${{ github.ref_name }}"
             echo "Commit: ${{ github.sha }}"
             
-            git fetch origin
-            git pull origin main
+            echo "=== Authenticating with GitHub CLI ==="
+            echo "$GITHUB_TOKEN" | gh auth login --with-token
+            
+            echo "=== Syncing repository ==="
+            gh repo sync dairycow/peaches --force --source origin/main
             
             echo "=== Pulling latest Docker images ==="
             docker compose pull
