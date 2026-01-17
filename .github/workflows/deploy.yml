@@ -148,10 +148,13 @@ jobs:
             echo "Commit: ${{ github.sha }}"
             
             echo "=== Authenticating with GitHub CLI ==="
-            echo "$GITHUB_TOKEN" | gh auth login --with-token
+            echo "$GITHUB_TOKEN" | gh auth login --with-token --hostname github.com
             
-            echo "=== Syncing repository ==="
-            gh repo sync dairycow/peaches --force --source origin/main
+            echo "=== Setting up git credentials ==="
+            gh auth setup-git
+            
+            echo "=== Pulling latest code ==="
+            git pull origin main
             
             echo "=== Pulling latest Docker images ==="
             docker compose pull
