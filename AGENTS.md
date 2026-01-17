@@ -104,7 +104,8 @@ from app.gateway import gateway_manager
 - Use `dict[str, str]` instead of `Dict[str, str]`
 - Use `list[Type]` instead of `List[Type]`
 - Module-level variables should be typed: `gateway_manager: GatewayManager | None = None`
-- Strict mypy mode is enabled: `disallow_untyped_defs = true`
+- Type checking is relaxed and should not block development
+- Type hints are strongly encouraged for better code documentation and IDE support
 
 ### Naming Conventions
 
@@ -282,7 +283,7 @@ uv run pytest -k "test_gateway"
 3. **Docker for development**: Use `docker compose up -d` for running services
 4. **Health checks**: Expose endpoints at `/health`, `/health/ready`, `/health/live`
 5. **Retry logic**: Use `tenacity` for retrying network operations
-6. **Type safety**: mypy is strict - all code must pass type checking
+6. **Type safety**: Type hints are strongly encouraged but type checking is relaxed and should not block development
 7. **Testing philosophy**: Test business logic, not frameworks (see Testing Philosophy above)
 8. **Avoid mocks**: Mocks are brittle - prefer real objects or integration tests
 
