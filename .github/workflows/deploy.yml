@@ -84,18 +84,19 @@ jobs:
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          script_stop: false
+          port: ${{ secrets.VPS_PORT }}
+          script_stop: true
           script: |
             set -e
-            
-            DEPLOY_DIR="${{ secrets.VPS_DEPLOY_DIR }}"
+
+            VPS_PORT="${{ secrets.VPS_PORT }}"
+            VPS_PORT="${VPS_PORT:-22}"
+
+            DEPLOY_DIR="/opt/peaches"
             cd "${DEPLOY_DIR}"
             
             echo "=== Deployment started ==="
@@ -103,28 +104,58 @@ jobs:
             echo "Commit: ${{ github.sha }}"
             
             echo "=== Pulling latest code ==="
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
             
             echo "=== Loading environment variables ==="
-            test -f .env && export $(grep -v '^#' .env | xargs)
-            
-            echo "=== Tagging previous Docker image as backup ==="
-            if docker image inspect peaches-bot:latest >/dev/null 2>&1; then
-              docker tag peaches-bot:latest peaches-bot:backup || true
+            if [ -f .env ]; then
+              set -a
+              source .env
+              set +a
             fi
-            
+
+            echo "=== Validating required files ==="
+            for secret in ./secrets/tws_password.txt ./secrets/vnc_password.txt; do
+              if [ ! -f "$secret" ]; then
+                echo "❌ Required secret file missing: $secret"
+                exit 1
+              fi
+            done
+
+            echo "=== Validating required environment variables ==="
+            required_vars=("TWS_USERID" "TRADING_MODE" "COOLTRADER_USERNAME")
+            for var in "${required_vars[@]}"; do
+              if [ -z "${!var}" ]; then
+                echo "❌ Required variable missing: $var"
+                exit 1
+              fi
+            done
+
+            echo "=== Stopping old containers (but keeping images for rollback) ==="
+            docker compose stop
+
             echo "=== Building Docker images ==="
-            docker compose build --no-cache
-            
-            echo "=== Stopping existing containers ==="
-            docker compose down
+            docker compose build
             
             echo "=== Starting containers ==="
             docker compose up -d
-            
-            echo "=== Waiting for services to be healthy ==="
-            timeout 120 bash -c 'until docker compose ps --format json | jq -e ".[] | select(.Health == \"healthy\") | .Service" >/dev/null; do sleep 5; done'
-            
+
+            echo "=== Checking jq installation ==="
+            if ! command -v jq &> /dev/null; then
+              sudo apt-get update && sudo apt-get install -y jq
+            fi
+
+            echo "=== Waiting for services to be healthy (max 300s) ==="
+            timeout 300 bash -c 'until docker compose ps --format json | jq -e ".[] | select(.Health == \"healthy\") | .Service" >/dev/null; do sleep 5; done' || {
+              echo "❌ Health check failed!"
+              echo "=== Showing recent logs ==="
+              docker compose logs --tail=50
+              echo "=== Rolling back to old containers ==="
+              docker compose down
+              docker compose start
+              exit 1
+            }
+
             docker compose ps
             
             echo "=== Deployment completed successfully ==="
