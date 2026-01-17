@@ -1,9 +1,9 @@
 """Configuration management using Pydantic Settings v2."""
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from ruamel.yaml import YAML
 
@@ -55,6 +55,35 @@ class HealthCheckConfig(BaseSettings):
     )
 
 
+class HistoricalDataConfig(BaseSettings):
+    """Historical data configuration."""
+
+    csv_dir: str = Field(default="/app/data/csv", description="CSV data directory")
+    db_path: str = Field(
+        default="/app/data/historical.db", description="Historical data database path"
+    )
+    import_enabled: bool = Field(default=True, description="Enable data import")
+
+    @model_validator(mode="after")
+    def make_paths_absolute(self) -> "HistoricalDataConfig":
+        """Ensure all paths are absolute."""
+        self.csv_dir = str(Path(self.csv_dir).absolute())
+        self.db_path = str(Path(self.db_path).absolute())
+        return self
+
+
+class CoolTraderConfig(BaseSettings):
+    """CoolTrader data provider configuration."""
+
+    username: str = Field(default="", description="CoolTrader username")
+    password: str = Field(default="", description="CoolTrader password")
+    base_url: str = Field(
+        default="https://data.cooltrader.com.au", description="CoolTrader API base URL"
+    )
+    download_schedule: str = Field(default="0 10 * * *", description="Download cron schedule")
+    import_schedule: str = Field(default="5 10 * * *", description="Import cron schedule")
+
+
 class Config(BaseSettings):
     """Main application configuration."""
 
@@ -69,6 +98,8 @@ class Config(BaseSettings):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     gateway: IBGatewayConfig = Field(default_factory=IBGatewayConfig)
     health: HealthCheckConfig = Field(default_factory=HealthCheckConfig)
+    historical_data: HistoricalDataConfig = Field(default_factory=HistoricalDataConfig)
+    cooltrader: CoolTraderConfig = Field(default_factory=CoolTraderConfig)
 
     @classmethod
     def from_yaml(cls, config_path: str | Path) -> "Config":
@@ -98,21 +129,27 @@ class Config(BaseSettings):
         logging_data = config_dict.pop("logging", {})
         gateway_data = config_dict.pop("gateway", {})
         health_data = config_dict.pop("health", {})
+        historical_data_data = config_dict.pop("historical_data", {})
+        cooltrader_data = config_dict.pop("cooltrader", {})
 
         database_config = DatabaseConfig(**database_data)
         logging_config = LoggingConfig(**logging_data)
         gateway_config = IBGatewayConfig(**gateway_data)
         health_config = HealthCheckConfig(**health_data)
+        historical_data_config = HistoricalDataConfig(**historical_data_data)
+        cooltrader_config = CoolTraderConfig(**cooltrader_data)
 
         return cls(
             database=database_config,
             logging=logging_config,
             gateway=gateway_config,
             health=health_config,
+            historical_data=historical_data_config,
+            cooltrader=cooltrader_config,
         )
 
     @staticmethod
-    def _normalize_keys(data: dict) -> dict:
+    def _normalize_keys(data: dict[str, Any]) -> dict[str, Any]:
         """Convert hyphenated keys to underscored for Python compatibility.
 
         Args:

@@ -651,6 +651,82 @@ Before deploying to production VPS:
 - [ ] Confirm no errors in health checks
 - [ ] Validate trade executions match expectations
 
+## Historical Data Management
+
+### Data Pipeline
+
+The bot downloads and imports ASX historical data automatically:
+
+1. **10:00 AM AEST** - Download yesterday's CSV from CoolTrader
+2. **10:05 AM AEST** - Import all CSVs to vn.py database
+
+### Manual Operations
+
+**Trigger CoolTrader download:**
+```bash
+curl -X POST http://localhost:8080/import/download/trigger
+```
+
+**Trigger CSV import:**
+```bash
+curl -X POST http://localhost:8080/import/import/trigger
+```
+
+**Start scheduler:**
+```bash
+curl -X POST http://localhost:8080/import/schedule/start
+```
+
+**Check scheduler status:**
+```bash
+curl http://localhost:8080/import/schedule/status
+```
+
+### Database Queries
+
+**View database stats:**
+```bash
+curl http://localhost:8080/import/database/stats
+```
+
+**View data overview:**
+```bash
+curl http://localhost:8080/import/database/overview
+```
+
+### Strategy Integration
+
+Strategies can access historical data via vn.py database:
+
+```python
+from app.database import get_database_manager
+from vnpy.trader.constant import Interval
+from datetime import datetime
+
+db_manager = get_database_manager()
+bars = db_manager.load_bars(
+    symbol="BHP",
+    exchange=Exchange.LOCAL,
+    interval=Interval.DAILY,
+    start=datetime(2020, 1, 1),
+    end=datetime(2024, 1, 1),
+)
+
+for bar in bars:
+    print(f"{bar.datetime}: {bar.close_price}")
+```
+
+### CSV File Format
+
+Place CSV files in `data/csv/` directory:
+
+```
+SYMBOL,DD/MM/YYYY,OPEN,HIGH,LOW,CLOSE,VOLUME
+BHP,14/01/2026,30.7,30.96,30.3,30.3,613098
+```
+
+File naming: `YYYYMMDD.csv` (e.g., `20260117.csv`)
+
 ## Testing
 
 ```bash

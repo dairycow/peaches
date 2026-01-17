@@ -4,6 +4,8 @@ This strategy demonstrates momentum trading on ASX stocks (e.g., BHP, CBA).
 Designed for paper trading on ASX via Interactive Brokers.
 """
 
+from typing import Any
+
 from vnpy.trader.object import BarData, OrderData, TickData, TradeData
 from vnpy_ctastrategy import CtaTemplate
 
@@ -25,7 +27,7 @@ DEFAULT_PARAMETERS = {
 }
 
 
-class ASXMomentumStrategy(CtaTemplate):
+class ASXMomentumStrategy(CtaTemplate):  # type: ignore[misc]
     """Example momentum strategy for ASX trading.
 
     Features:
@@ -59,10 +61,10 @@ class ASXMomentumStrategy(CtaTemplate):
 
     def __init__(
         self,
-        cta_engine,
+        cta_engine: Any,
         strategy_name: str,
         vt_symbol: str,
-        setting: dict,
+        setting: dict[str, Any],
     ) -> None:
         super().__init__(cta_engine, strategy_name, vt_symbol, setting)
 
@@ -166,7 +168,8 @@ class ASXMomentumStrategy(CtaTemplate):
         Returns:
             True if exceeds limit, False otherwise
         """
-        new_position = abs(self.pos) + proposed_size
+        current_pos: int = int(self.pos) if self.pos is not None else 0
+        new_position = abs(current_pos) + proposed_size
         return new_position > self.max_position_size
 
     def _on_entry_signal(self, bar: BarData) -> None:
@@ -267,8 +270,8 @@ class ASXMomentumStrategy(CtaTemplate):
         if len(self.rsi_buffer) < 2:
             return 50.0
 
-        gains = []
-        losses = []
+        gains: list[float] = []
+        losses: list[float] = []
 
         for i in range(1, len(self.rsi_buffer)):
             change = self.rsi_buffer[i] - self.rsi_buffer[i - 1]

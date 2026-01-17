@@ -56,11 +56,14 @@ services:
       - IB_GATEWAY_PORT=${IB_GATEWAY_PORT:-4004}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - PYTHONUNBUFFERED=1
+      - COOLTRADER_USERNAME=${COOLTRADER_USERNAME}
+      - COOLTRADER_PASSWORD=${COOLTRADER_PASSWORD}
     volumes:
       - ./config:/app/config:ro
       - ./app/strategies:/app/strategies:ro
       - bot-data:/app/data
       - bot-logs:/app/logs
+      - ./data/csv:/app/data/csv
     networks:
       - trading
     healthcheck:

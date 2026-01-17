@@ -241,22 +241,39 @@ vt_symbol = "CBA-STK-ASX"
 vt_symbol = "AAPL-STK-SMART"
 ```
 
-### Testing Patterns
-Tests should be in `tests/` directory with `test_` prefix:
-```python
-import pytest
+### Testing Philosophy: Focus on Business Logic
 
-from app.config import config
+**Core Principle**: Only test code we write. Trust external packages to test themselves.
 
+We avoid:
+- Testing vn.py internals (their responsibility)
+- Testing FastAPI routing/middleware (their responsibility)
+- Mocking complex async frameworks (error-prone, brittle)
 
-def test_config_defaults():
-    assert config.trading.max_position_size == 100
+We test:
+- Pure business logic (CSV parsing, data transformation)
+- Simple integration flows with real components
+- Configuration validation
 
+### Testing Commands
+```bash
+# Run all tests
+uv run pytest
 
-@pytest.mark.asyncio
-async def test_gateway_connection():
-    # Test async functionality
-    pass
+# Run tests with coverage
+uv run pytest --cov=app --cov-report=term-missing --cov-report=html
+
+# Run a single test file
+uv run pytest tests/test_gateway.py
+
+# Run a single test function
+uv run pytest tests/test_gateway.py::test_connection
+
+# Run tests with verbose output
+uv run pytest -v
+
+# Run tests matching a pattern
+uv run pytest -k "test_gateway"
 ```
 
 ### Important Notes
@@ -266,9 +283,30 @@ async def test_gateway_connection():
 4. **Health checks**: Expose endpoints at `/health`, `/health/ready`, `/health/live`
 5. **Retry logic**: Use `tenacity` for retrying network operations
 6. **Type safety**: mypy is strict - all code must pass type checking
-7. **Coverage**: Aim for high test coverage (pytest-cov is configured)
+7. **Testing philosophy**: Test business logic, not frameworks (see Testing Philosophy above)
+8. **Avoid mocks**: Mocks are brittle - prefer real objects or integration tests
 
 ### Common Patterns
+
+**Pure logic tests (no mocks, no external dependencies):**
+```python
+import pytest
+from datetime import date
+
+def test_date_string_format():
+    """Test date to string conversion for CSV filename."""
+    test_date = date(2024, 1, 15)
+    date_str = test_date.strftime("%Y%m%d")
+    assert date_str == "20240115"
+
+def test_csv_line_parsing():
+    """Test parsing a single CSV line."""
+    line = "BHP,14/01/2026,30.7,30.96,30.3,30.3,613098"
+    parts = line.split(",")
+
+    assert parts[0] == "BHP"
+    assert float(parts[2]) == 30.7
+```
 
 **Context managers for async lifecycle:**
 ```python
