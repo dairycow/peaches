@@ -91,7 +91,7 @@ async def startup() -> None:
         await _initialize_gateway()
         await _initialize_strategies()
         _start_health_checks()
-        _start_scheduler()
+        await scheduler.start()
         logger.info("Application started successfully")
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
@@ -188,7 +188,7 @@ def _start_scheduler() -> None:
 
     logger.info("Import scheduler enabled")
     try:
-        scheduler.start()
+        await scheduler.start()
     except Exception as e:
         logger.error(f"Failed to start scheduler: {e}")
 
@@ -235,7 +235,7 @@ async def shutdown() -> None:
             cta_engine.stop_all_strategies()
 
         if scheduler.is_running():
-            scheduler.stop()
+            await scheduler.stop()
 
         await gateway_manager.stop()
         logger.info("Application shutdown complete")
