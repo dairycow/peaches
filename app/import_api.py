@@ -116,7 +116,7 @@ async def start_scheduler() -> SchedulerStatusResponse:
             timezone="Australia/Sydney",
         )
 
-    scheduler.start()
+    await scheduler.start()
 
     return SchedulerStatusResponse(
         enabled=config.historical_data.import_enabled,
