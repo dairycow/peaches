@@ -43,9 +43,7 @@ services:
       - "127.0.0.1:${VNC_PORT:-5900}:5900"
 
   trading-bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${TRADING_BOT_IMAGE:-ghcr.io/${GITHUB_REPOSITORY:-peaches-bot}:latest}
     container_name: trading-bot
     restart: unless-stopped
     depends_on:
