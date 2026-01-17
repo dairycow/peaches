@@ -69,8 +69,8 @@ Common ASX stocks to test:
 ### 1. Clone and Configure
 
 ```bash
-git clone https://github.com/dairycow/bell.git
-cd bell
+git clone https://github.com/dairycow/peaches.git
+cd peaches
 
 cp .env.example .env
 ```

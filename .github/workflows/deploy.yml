@@ -140,7 +140,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
-            cd ${{ secrets.VPS_DEPLOY_DIR || '/opt/vnpy-trading-bot' }}
+            cd ${{ secrets.VPS_DEPLOY_DIR || '/opt/peaches' }}
 
             git pull origin main
 
