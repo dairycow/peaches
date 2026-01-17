@@ -90,8 +90,8 @@ async def startup() -> None:
     try:
         await _initialize_gateway()
         await _initialize_strategies()
-        _start_health_checks()
         await scheduler.start()
+        _start_health_checks()
         logger.info("Application started successfully")
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
