@@ -25,7 +25,7 @@ Production-ready, headless trading bot for vn.py running in Docker with Interact
 ├─────────────────────────────────────────────────────────┤
 │                                                   │
 │  ┌──────────────────┐      ┌──────────────────┐    │
-│  │   ib-gateway     │      │  trading-bot     │    │
+│  │   ib-gateway     │      │  peaches-bot     │    │
 │  │  (pre-built)     │      │   (custom)       │    │
 │  ├──────────────────┤      ├──────────────────┤    │
 │  │ • IB Gateway     │      │ • vn.py         │    │
@@ -113,7 +113,7 @@ docker compose up -d
 docker compose logs -f
 
 # View specific service
-docker compose logs -f trading-bot
+docker compose logs -f peaches-bot
 docker compose logs -f ib-gateway
 ```
 
@@ -193,8 +193,8 @@ docker compose down
 **Code Changes**:
 When modifying strategy code or configuration:
 1. Edit files locally
-2. Restart trading-bot container: `docker compose restart trading-bot`
-3. Check logs: `docker compose logs -f trading-bot`
+2. Restart trading-bot container: `docker compose restart peaches-bot`
+3. Check logs: `docker compose logs -f peaches-bot`
 
 **VNC for Debugging** (Optional):
 
@@ -401,14 +401,14 @@ Push to `main` branch triggers automatic deployment:
 
 ```bash
 # Build image
-docker build -t ghcr.io/your-username/vnpy-trading-bot:latest .
+docker build -t ghcr.io/your-username/peaches-trading-bot:latest .
 
 # Push to registry
-docker push ghcr.io/your-username/vnpy-trading-bot:latest
+docker push ghcr.io/your-username/peaches-trading-bot:latest
 
 # Deploy to VPS
 ssh user@your-vps.com
-cd /opt/vnpy-trading-bot
+cd /opt/peaches-trading-bot
 git pull origin main
 docker compose pull
 docker compose down
@@ -421,10 +421,10 @@ docker compose up -d
 
 ```bash
 # Real-time logs
-docker compose logs -f trading-bot
+docker compose logs -f peaches-bot
 
 # Last 100 lines
-docker compose logs --tail=100 trading-bot
+docker compose logs --tail=100 peaches-bot
 ```
 
 ### Health Monitoring
@@ -758,7 +758,7 @@ MIT License - see LICENSE file for details
 
 - Documentation: https://www.vnpy.com/docs
 - IB Gateway Docker: https://github.com/gnzsnz/ib-gateway-docker
-- Issues: https://github.com/your-username/vnpy-trading-bot/issues
+- Issues: https://github.com/your-username/peaches-trading-bot/issues
 
 ## Disclaimer
 

@@ -49,7 +49,7 @@ def initialize_cta_engine(main_engine: MainEngine, event_engine: EventEngine) ->
 
 
 app = FastAPI(
-    title="vnpy-trading-bot",
+    title="peaches-trading-bot",
     description="Production-ready headless trading bot for vn.py",
     version="0.1.0",
     docs_url="/docs",
@@ -83,7 +83,7 @@ _health_check_task: asyncio.Task[None] | None = None
 
 async def startup() -> None:
     """Initialize application components."""
-    logger.info("Starting vnpy-trading-bot...")
+    logger.info("Starting peaches-trading-bot...")
 
     _setup_logging()
 

@@ -20,6 +20,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           version: "latest"
+          cache-dependency-glob: uv.lock
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -32,6 +33,7 @@ jobs:
 
       - name: Run tests
         run: |
+          set -e
           uv run pytest --cov=app --cov-report=xml --cov-report=term
 
       - name: Upload coverage
@@ -52,6 +54,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           version: "latest"
+          cache-dependency-glob: uv.lock
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -83,7 +86,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy to VPS via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -92,9 +95,6 @@ jobs:
           script_stop: true
           script: |
             set -e
-
-            VPS_PORT="${{ secrets.VPS_PORT }}"
-            VPS_PORT="${VPS_PORT:-22}"
 
             DEPLOY_DIR="/opt/peaches"
             cd "${DEPLOY_DIR}"
@@ -145,14 +145,15 @@ jobs:
               sudo apt-get update && sudo apt-get install -y jq
             fi
 
-            echo "=== Waiting for services to be healthy (max 300s) ==="
-            timeout 300 bash -c 'until docker compose ps --format json | jq -e ".[] | select(.Health == \"healthy\") | .Service" >/dev/null; do sleep 5; done' || {
+            echo "=== Waiting for all services to be healthy (max 300s) ==="
+            timeout 300 bash -c '
+              until [ "$(docker compose ps --format json | jq -r "select(.Health == \"healthy\") | .Service" | wc -l)" -eq "$(docker compose ps --format json | jq ". | length")" ]; do
+                sleep 5
+              done
+            ' || {
               echo "❌ Health check failed!"
               echo "=== Showing recent logs ==="
               docker compose logs --tail=50
-              echo "=== Rolling back to old containers ==="
-              docker compose down
-              docker compose start
               exit 1
             }
 
