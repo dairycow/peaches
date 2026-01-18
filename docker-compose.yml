@@ -1,4 +1,4 @@
-name: vnpy-trading-bot
+name: peaches-trading-bot
 
 services:
   ib-gateway:
@@ -42,11 +42,11 @@ services:
       - "127.0.0.1:4002:4004"
       - "127.0.0.1:${VNC_PORT:-5900}:5900"
 
-  trading-bot:
+  peaches-bot:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: trading-bot
+    container_name: peaches-bot
     restart: unless-stopped
     depends_on:
       ib-gateway:
@@ -61,8 +61,8 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./app/strategies:/app/strategies:ro
-      - bot-data:/app/data
-      - bot-logs:/app/logs
+      - peaches-bot-data:/app/data
+      - peaches-bot-logs:/app/logs
       - ./data/csv:/app/data/csv
     networks:
       - trading
@@ -83,9 +83,9 @@ services:
 volumes:
   ib-gateway-config:
     driver: local
-  bot-data:
+  peaches-bot-data:
     driver: local
-  bot-logs:
+  peaches-bot-logs:
     driver: local
 
 networks:
