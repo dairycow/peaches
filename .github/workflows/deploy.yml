@@ -131,7 +131,8 @@ jobs:
             done
 
             echo "=== Stopping old containers (but keeping images for rollback) ==="
-            docker compose down
+            docker compose down --remove-orphans || true
+            docker rm -f ib-gateway peaches-bot 2>/dev/null || true
 
             echo "=== Building Docker images ==="
             docker compose build
