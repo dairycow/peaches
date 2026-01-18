@@ -131,7 +131,7 @@ jobs:
             done
 
             echo "=== Stopping old containers (but keeping images for rollback) ==="
-            docker compose stop
+            docker compose down
 
             echo "=== Building Docker images ==="
             docker compose build
