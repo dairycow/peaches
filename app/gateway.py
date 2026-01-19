@@ -32,6 +32,7 @@ class IBGatewayConnection:
         self.gateway: BaseGateway | None = None
         self.connected = False
         self._reconnect_attempts = 0
+        self._client_id_counter = 0
 
     async def connect(self) -> None:
         """Connect to IB Gateway.
@@ -65,7 +66,7 @@ class IBGatewayConnection:
         setting: dict[str, int | str] = {
             "TWS地址": config.gateway.host,
             "TWS端口": int(config.gateway.port),
-            "客户号": config.gateway.client_id,
+            "客户号": self._client_id_counter + config.gateway.client_id,
             "交易账户": "",
         }
 
@@ -85,6 +86,7 @@ class IBGatewayConnection:
 
         except Exception as e:
             self._reconnect_attempts += 1
+            self._client_id_counter += 1
             logger.warning(f"Connection attempt {self._reconnect_attempts} failed: {e}")
 
             if self.gateway:
