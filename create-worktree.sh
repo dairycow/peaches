@@ -36,6 +36,15 @@ cd "$WORKTREE_PATH"
 uv venv
 uv sync --extra dev
 
+# Create symlinks for data and logs directories
+ln -s /opt/peaches/data data-prod
+ln -s /opt/peaches/logs logs-prod
+
+# Copy opencode config and update venv path
+mkdir -p .opencode
+cp "$PROJECT_ROOT/.opencode/opencode.json" .opencode/
+sed -i "s|$PROJECT_ROOT/\.venv|$WORKTREE_PATH/.venv|g" .opencode/opencode.json
+
 echo "Worktree ready at: $WORKTREE_PATH"
 echo ""
 echo "To merge into main and clean up:"
