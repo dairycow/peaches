@@ -33,6 +33,7 @@ class IBGatewayConnection:
         self.connected = False
         self._reconnect_attempts = 0
         self._client_id_counter = 0
+        self._connection_event = asyncio.Event()
 
     async def connect(self) -> None:
         """Connect to IB Gateway.
@@ -63,6 +64,18 @@ class IBGatewayConnection:
 
         self.main_engine.add_gateway(IbGateway)
 
+        def on_log(event):
+            from vnpy.event import Event
+
+            if isinstance(event, Event):
+                data = event.data
+                if isinstance(data, dict):
+                    msg = data.get("gateway_name", "") + " " + data.get("msg", "")
+                    if "连接成功" in msg or "connected" in msg.lower():
+                        self._connection_event.set()
+
+        self.event_engine.register("EVENT_LOG", on_log)
+
         setting: dict[str, int | str] = {
             "TWS地址": config.gateway.host,
             "TWS端口": int(config.gateway.port),
@@ -79,6 +92,7 @@ class IBGatewayConnection:
                 None, lambda: main_engine.connect(setting, "IB")
             )
 
+            self._connection_event.clear()
             await self._wait_for_connection(timeout=config.gateway.connect_timeout)
 
             self.connected = True
@@ -106,17 +120,13 @@ class IBGatewayConnection:
         Raises:
             TimeoutError: If connection not established within timeout
         """
-        start_time = asyncio.get_event_loop().time()
+        try:
+            await asyncio.wait_for(self._connection_event.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            raise TimeoutError(f"IB Gateway connection timeout after {timeout} seconds") from None
 
-        while (asyncio.get_event_loop().time() - start_time) < timeout:
-            await asyncio.sleep(0.5)
-
-            if self.main_engine and self.main_engine.get_gateway("IB"):
-                self.gateway = self.main_engine.get_gateway("IB")
-                if self.connected:
-                    return
-
-        raise TimeoutError(f"IB Gateway connection timeout after {timeout} seconds")
+        if self.main_engine and self.main_engine.get_gateway("IB"):
+            self.gateway = self.main_engine.get_gateway("IB")
 
     async def disconnect(self) -> None:
         """Disconnect from IB Gateway."""
