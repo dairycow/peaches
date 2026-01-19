@@ -63,7 +63,7 @@ class CoolTraderDownloader:
             Download URL string
         """
         date_str = date_obj.strftime("%Y%m%d")
-        return f"{self.base_url}/{date_str}.csv"
+        return f"https://data.cooltrader.com.au/amember/eodfiles/nextday/csv/{date_str}.csv"
 
     @retry(
         stop=stop_after_attempt(3),
