@@ -73,130 +73,130 @@ jobs:
         run: |
           uv run mypy app/
 
-  deploy:
-    name: Deploy to VPS
-    runs-on: ubuntu-latest
-    needs: [test, lint]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    permissions:
-      contents: read
+  # deploy:
+  #   name: Deploy to VPS
+  #   runs-on: ubuntu-latest
+  #   needs: [test, lint]
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   permissions:
+  #     contents: read
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  #   steps:
+      # - name: Checkout repository
+      #   uses: actions/checkout@v4
 
-      - name: Deploy to VPS via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          script: |
-            set -e
+      # - name: Deploy to VPS via SSH
+      #   uses: appleboy/ssh-action@v1
+      #   with:
+      #     host: ${{ secrets.VPS_HOST }}
+      #     username: ${{ secrets.VPS_USER }}
+      #     key: ${{ secrets.VPS_SSH_KEY }}
+      #     port: ${{ secrets.VPS_PORT }}
+      #     script: |
+      #       set -e
 
-            DEPLOY_DIR="/opt/peaches"
-            cd "${DEPLOY_DIR}"
+      #       DEPLOY_DIR="/opt/peaches"
+      #       cd "${DEPLOY_DIR}"
             
-            echo "=== Deployment started ==="
-            echo "Branch: main"
-            echo "Commit: ${{ github.sha }}"
+      #       echo "=== Deployment started ==="
+      #       echo "Branch: main"
+      #       echo "Commit: ${{ github.sha }}"
             
-            echo "=== Pulling latest code ==="
-            git fetch origin
-            git reset --hard origin/main
+      #       echo "=== Pulling latest code ==="
+      #       git fetch origin
+      #       git reset --hard origin/main
             
-            echo "=== Loading environment variables ==="
-            if [ -f .env ]; then
-              set -a
-              source .env
-              set +a
-            fi
+      #       echo "=== Loading environment variables ==="
+      #       if [ -f .env ]; then
+      #         set -a
+      #         source .env
+      #         set +a
+      #       fi
 
-            echo "=== Validating required files ==="
-            for secret in ./secrets/tws_password.txt ./secrets/vnc_password.txt; do
-              if [ ! -f "$secret" ]; then
-                echo "❌ Required secret file missing: $secret"
-                exit 1
-              fi
-            done
+      #       echo "=== Validating required files ==="
+      #       for secret in ./secrets/tws_password.txt ./secrets/vnc_password.txt; do
+      #         if [ ! -f "$secret" ]; then
+      #           echo "❌ Required secret file missing: $secret"
+      #           exit 1
+      #         fi
+      #       done
 
-            echo "=== Validating required environment variables ==="
-            required_vars=("TWS_USERID" "TRADING_MODE" "COOLTRADER_USERNAME")
-            for var in "${required_vars[@]}"; do
-              if [ -z "${!var}" ]; then
-                echo "❌ Required variable missing: $var"
-                exit 1
-              fi
-            done
+      #       echo "=== Validating required environment variables ==="
+      #       required_vars=("TWS_USERID" "TRADING_MODE" "COOLTRADER_USERNAME")
+      #       for var in "${required_vars[@]}"; do
+      #         if [ -z "${!var}" ]; then
+      #           echo "❌ Required variable missing: $var"
+      #           exit 1
+      #         fi
+      #       done
 
-            echo "=== Stopping old containers (but keeping images for rollback) ==="
-            docker compose down --remove-orphans || true
-            docker rm -f ib-gateway peaches-bot 2>/dev/null || true
+      #       echo "=== Stopping old containers (but keeping images for rollback) ==="
+      #       docker compose down --remove-orphans || true
+      #       docker rm -f ib-gateway peaches-bot 2>/dev/null || true
 
-            echo "=== Building Docker images ==="
-            docker compose build
+      #       echo "=== Building Docker images ==="
+      #       docker compose build
             
-            echo "=== Starting containers ==="
-            docker compose up -d
+      #       echo "=== Starting containers ==="
+      #       docker compose up -d
 
-            echo "=== Checking jq installation ==="
-            if ! command -v jq &> /dev/null; then
-              sudo apt-get update && sudo apt-get install -y jq
-            fi
+      #       echo "=== Checking jq installation ==="
+      #       if ! command -v jq &> /dev/null; then
+      #         sudo apt-get update && sudo apt-get install -y jq
+      #       fi
 
-            echo "=== Waiting for all services to be healthy (max 300s) ==="
-            timeout 300 bash -c '
-              until [ "$(docker compose ps --format json | jq -r "select(.Health == \"healthy\") | .Service" | wc -l)" -eq "$(docker compose ps --format json | jq ". | length")" ]; do
-                sleep 5
-              done
-            ' || {
-              echo "❌ Health check failed!"
-              echo "=== Showing recent logs ==="
-              docker compose logs --tail=50
-              exit 1
-            }
+      #       echo "=== Waiting for all services to be healthy (max 300s) ==="
+      #       timeout 300 bash -c '
+      #         until [ "$(docker compose ps --format json | jq -r "select(.Health == \"healthy\") | .Service" | wc -l)" -eq "$(docker compose ps --format json | jq ". | length")" ]; do
+      #           sleep 5
+      #         done
+      #       ' || {
+      #         echo "❌ Health check failed!"
+      #         echo "=== Showing recent logs ==="
+      #         docker compose logs --tail=50
+      #         exit 1
+      #       }
 
-            docker compose ps
+      #       docker compose ps
             
-            echo "=== Deployment completed successfully ==="
+      #       echo "=== Deployment completed successfully ==="
 
-      - name: Notify deployment success
-        if: success()
-        uses: sarisia/actions-status-discord@v1
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          description: |
-            ## 🚀 Deployment Successful
+      # - name: Notify deployment success
+      #   if: success()
+      #   uses: sarisia/actions-status-discord@v1
+      #   with:
+      #     webhook: ${{ secrets.DISCORD_WEBHOOK }}
+      #     description: |
+      #       ## 🚀 Deployment Successful
             
-            **Repository**: ${{ github.repository }}
-            **Branch**: main
-            **Commit**: ${{ github.sha }}
-            **Author**: ${{ github.actor }}
+      #       **Repository**: ${{ github.repository }}
+      #       **Branch**: main
+      #       **Commit**: ${{ github.sha }}
+      #       **Author**: ${{ github.actor }}
             
-            ### Quality Checks
-            ✅ Tests: Passed
-            ✅ Linting: Passed
+      #       ### Quality Checks
+      #       ✅ Tests: Passed
+      #       ✅ Linting: Passed
             
-            deployed to peaches.again.au
-          color: 0x57F287
-          username: GitHub Actions
-          avatar_url: ${{ github.event.repository.owner.avatar_url }}
+      #       deployed to peaches.again.au
+      #     color: 0x57F287
+      #     username: GitHub Actions
+      #     avatar_url: ${{ github.event.repository.owner.avatar_url }}
 
-      - name: Notify deployment failure
-        if: failure()
-        uses: sarisia/actions-status-discord@v1
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          description: |
-            ## ❌ Deployment Failed
+      # - name: Notify deployment failure
+      #   if: failure()
+      #   uses: sarisia/actions-status-discord@v1
+      #   with:
+      #     webhook: ${{ secrets.DISCORD_WEBHOOK }}
+      #     description: |
+      #       ## ❌ Deployment Failed
             
-            **Repository**: ${{ github.repository }}
-            **Branch**: main
-            **Commit**: ${{ github.sha }}
-            **Author**: ${{ github.actor }}
+      #       **Repository**: ${{ github.repository }}
+      #       **Branch**: main
+      #       **Commit**: ${{ github.sha }}
+      #       **Author**: ${{ github.actor }}
             
-            Check logs for details
-          color: 0xFF0000
-          username: GitHub Actions
-          avatar_url: ${{ github.event.repository.owner.avatar_url }}
+      #       Check logs for details
+      #     color: 0xFF0000
+      #     username: GitHub Actions
+      #     avatar_url: ${{ github.event.repository.owner.avatar_url }}
