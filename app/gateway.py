@@ -64,6 +64,8 @@ class IBGatewayConnection:
 
         self.main_engine.add_gateway(IbGateway)
 
+        self._connection_event.clear()
+
         def on_log(event):
             from vnpy.event import Event
 
@@ -92,7 +94,6 @@ class IBGatewayConnection:
                 None, lambda: main_engine.connect(setting, "IB")
             )
 
-            self._connection_event.clear()
             await self._wait_for_connection(timeout=config.gateway.connect_timeout)
 
             self.connected = True
