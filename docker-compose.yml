@@ -61,9 +61,8 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./app/strategies:/app/strategies:ro
-      - peaches-bot-data:/app/data
-      - ./logs:/app/logs
       - /opt/peaches/data:/app/data
+      - ./logs:/app/logs
     networks:
       - trading
     healthcheck:
