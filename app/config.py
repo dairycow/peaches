@@ -58,7 +58,7 @@ class HealthCheckConfig(BaseSettings):
 class HistoricalDataConfig(BaseSettings):
     """Historical data configuration."""
 
-    csv_dir: str = Field(default="/app/data/csv", description="CSV data directory")
+    csv_dir: str = Field(default="/app/data/raw/cooltrader", description="CSV data directory")
     db_path: str = Field(
         default="/app/data/historical.db", description="Historical data database path"
     )

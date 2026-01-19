@@ -63,7 +63,7 @@ services:
       - ./app/strategies:/app/strategies:ro
       - peaches-bot-data:/app/data
       - ./logs:/app/logs
-      - ./data/csv:/app/data/csv
+      - /opt/peaches/data:/app/data
     networks:
       - trading
     healthcheck:
