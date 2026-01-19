@@ -1,5 +1,10 @@
 .PHONY: help install dev test lint type-check format clean build up down logs deploy
 
+# Workflow:
+# - Feature dev: Use create-worktree.sh (not this Makefile)
+# - Production deploy: Use manual-deploy.sh in /opt/peaches
+# - This Makefile: Local dev commands (format, lint, test, etc.)
+
 help:  ## Show this help message
 	@echo 'Usage: make [target]'
 	@echo ''
@@ -49,9 +54,9 @@ clean:  ## Clean up Docker resources
 	docker compose down -v
 	docker system prune -f
 
-deploy:  ## Deploy to production
-	@echo "Pushing to main branch triggers deployment"
-	git push origin main
+ deploy:  ## Deploy to production (uses manual-deploy.sh)
+	@echo "Production deployment uses manual-deploy.sh"
+	@echo "Use: cd /opt/peaches && ./manual-deploy.sh"
 
 status:  ## Show status of all containers
 	docker compose ps
