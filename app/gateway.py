@@ -106,16 +106,11 @@ class IBGatewayConnection:
         Raises:
             TimeoutError: If connection not established within timeout
         """
-        start_time = asyncio.get_event_loop().time()
+        await asyncio.sleep(2)
 
-        while (asyncio.get_event_loop().time() - start_time) < timeout:
-            await asyncio.sleep(0.5)
-
-            if self.main_engine and self.main_engine.get_gateway("IB"):
-                gateway = self.main_engine.get_gateway("IB")
-                if gateway and gateway.status == "ready":
-                    self.gateway = gateway
-                    return
+        if self.main_engine and self.main_engine.get_gateway("IB"):
+            self.gateway = self.main_engine.get_gateway("IB")
+            return
 
         raise TimeoutError(f"IB Gateway connection timeout after {timeout} seconds")
 
