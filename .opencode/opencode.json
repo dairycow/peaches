@@ -8,7 +8,8 @@
     },
     "permission": {
         "external_directory": {
-            "/Users/hf*": "allow"
+            "/Users/hf*": "allow",
+            "/home/hf/peaches-*": "allow"
         }
     }
 }
