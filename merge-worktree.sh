@@ -60,9 +60,13 @@ git merge "$BRANCH_NAME"
 echo "Removing worktree at: $WORKTREE_PATH"
 git worktree remove "$WORKTREE_PATH"
 
+# Push to origin
+echo "Pushing main branch to origin..."
+git push origin main
+
 # Delete the branch
 echo "Deleting branch: $BRANCH_NAME"
 git branch -d "$BRANCH_NAME"
 
 echo ""
-echo "Successfully merged $BRANCH_NAME into main and cleaned up worktree."
+echo "Successfully merged $BRANCH_NAME into main, pushed to origin, and cleaned up worktree."
