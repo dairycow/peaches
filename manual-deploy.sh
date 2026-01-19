@@ -49,7 +49,7 @@ fi
 
 echo "=== Waiting for all services to be healthy (max 300s) ==="
 timeout 300 bash -c '
-  until [ "$(docker compose ps --format json | jq -r "select(.Health == \"healthy\") | .Service" | wc -l | tr -d '[:space:]')" -eq "$(docker compose ps --format json | jq ". | length")" ]; do
+  until [ "$(docker compose ps --format json 2>/dev/null | jq -r "select(.Health == \"healthy\") | .Service" | wc -l | tr -d "[:space:]")" -eq "$(docker compose ps --format json 2>/dev/null | jq -s ". | length")" ]; do
     sleep 5
   done
 ' || {
