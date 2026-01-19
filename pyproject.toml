@@ -16,6 +16,7 @@ classifiers = [
 
 dependencies = [
     "vnpy>=4.3.0",
+    "vnpy_sqlite>=1.0.0",
     "vnpy_ib>=9.81.1.6",
     "python-ibapi-stable>=10.30.1",
     "vnpy_ctastrategy>=1.3.0",

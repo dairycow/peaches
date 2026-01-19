@@ -63,9 +63,10 @@ class IBGatewayConnection:
         self.main_engine.add_gateway(IbGateway)
 
         setting: dict[str, str] = {
-            "TWS_ADDRESS": config.gateway.host,
-            "TWS_PORT": str(config.gateway.port),
-            "TWS_CLIENT_ID": str(config.gateway.client_id),
+            "TWS地址": config.gateway.host,
+            "TWS端口": str(config.gateway.port),
+            "客户号": str(config.gateway.client_id),
+            "交易账户": "",
         }
 
         try:

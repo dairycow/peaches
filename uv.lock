@@ -675,6 +675,7 @@ dependencies = [
     { name = "vnpy" },
     { name = "vnpy-ctastrategy" },
     { name = "vnpy-ib" },
+    { name = "vnpy-sqlite" },
 ]
 
 [package.optional-dependencies]
@@ -719,11 +720,21 @@ requires-dist = [
     { name = "vnpy", specifier = ">=4.3.0" },
     { name = "vnpy-ctastrategy", specifier = ">=1.3.0" },
     { name = "vnpy-ib", specifier = ">=9.81.1.6" },
+    { name = "vnpy-sqlite", specifier = ">=1.0.0" },
 ]
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pyright", specifier = ">=1.1.408" }]
+
+[[package]]
+name = "peewee"
+version = "3.19.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/b0/79462b42e89764998756e0557f2b58a15610a5b4512fbbcccae58fba7237/peewee-3.19.0.tar.gz", hash = "sha256:f88292a6f0d7b906cb26bca9c8599b8f4d8920ebd36124400d0cbaaaf915511f", size = 974035, upload-time = "2026-01-07T17:24:59.597Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/41/19c65578ef9a54b3083253c68a607f099642747168fe00f3a2bceb7c3a34/peewee-3.19.0-py3-none-any.whl", hash = "sha256:de220b94766e6008c466e00ce4ba5299b9a832117d9eb36d45d0062f3cfd7417", size = 411885, upload-time = "2026-01-07T17:24:58.33Z" },
+]
 
 [[package]]
 name = "platformdirs"
@@ -1555,6 +1566,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/56/1a/3cf53df77484398a93b8fe9da43a931de0525b8f06037ab6a872e8b455ba/vnpy_ib-10.40.1.2.tar.gz", hash = "sha256:c224e602f961b90bc30e819fb749ae4c9da26d4f4738aac41f13f3e119d7ef8f", size = 14599, upload-time = "2025-12-22T12:51:13.472Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/44/a64b24867e959131c811098e3a9d788d7e5bb2fbc05dd89f3667c3ebfa90/vnpy_ib-10.40.1.2-py3-none-any.whl", hash = "sha256:e19bfa16210e28b2368030873690abc5e6f6778d9968e59eb476e3796f00805c", size = 13806, upload-time = "2025-12-22T12:51:07.737Z" },
+]
+
+[[package]]
+name = "vnpy-sqlite"
+version = "1.1.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "peewee" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/87/76/39b4c7207ed8603354530ac1228f6ad8073db8fcb1a200c5b5b4b02bebff/vnpy_sqlite-1.1.3.tar.gz", hash = "sha256:ed7d76f255b1acd335f479bb8a5ff14931eeec436147ef275ed834208bfd592c", size = 6592, upload-time = "2025-10-02T14:42:21.39Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/81/5acf1010985d725e0733c40f591f89a60cf752311ef22e6bb06f37d19af0/vnpy_sqlite-1.1.3-py3-none-any.whl", hash = "sha256:50f80c45737ef9a491aeebb9bfac0cec57f087461b6d7867838ef678cfbe67bb", size = 6482, upload-time = "2025-10-02T14:42:20.118Z" },
 ]
 
 [[package]]
