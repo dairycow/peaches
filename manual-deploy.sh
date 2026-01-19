@@ -37,14 +37,9 @@ for var in "${required_vars[@]}"; do
   fi
 done
 
-echo "=== Stopping old containers (but keeping images for rollback) ==="
+echo "=== Rebuilding and restarting containers ==="
 docker compose down --remove-orphans || true
-docker rm -f ib-gateway peaches-bot 2>/dev/null || true
-
-echo "=== Building Docker images ==="
 docker compose build
-
-echo "=== Starting containers ==="
 docker compose up -d
 
 echo "=== Checking jq installation ==="
