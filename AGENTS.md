@@ -1,336 +1,197 @@
-# AGENTS.md - Development Guidelines for Agentic Coding
+# AGENTS.md - Development Guidelines
 
-This file contains essential information for agentic coding agents working in this repository.
+## Development Workflow
 
-## Build, Lint, and Test Commands
-
-### Dependency Management
-This project uses `uv` for fast dependency management.
+### Git Worktree Development
+Worktrees are used for feature development, keeping main clean.
 
 ```bash
-# Install dependencies (dev mode includes test/lint tools)
-uv sync --all-extras --dev
+# Create a new worktree (from ~/peaches)
+./create-worktree.sh feature/new-feature
 
-# Install production dependencies only
-uv sync --all-extras --no-dev
+# Work in worktree at ~/peaches-feature-new-feature/
+# - Has its own venv (uv venv + uv sync --extra dev)
+# - data-prod symlink → /opt/peaches/data
+# - logs-prod symlink → /opt/peaches/logs
+
+# When done: merge back and cleanup
+./merge-worktree.sh feature/new-feature
 ```
 
-### Code Quality Commands
+### Deployment
+Deploy to production from `/opt/peaches`:
 
 ```bash
-# Format code
+cd /opt/peaches
+./manual-deploy.sh
+```
+
+Deployment:
+- Pulls latest from `origin/main`
+- Validates secrets and env vars
+- Rebuilds Docker images
+- Restarts containers
+- Waits for health checks
+
+## Code Quality
+
+### Commands
+```bash
+# Format
 uv run ruff format app/
 
-# Lint code
+# Lint
 uv run ruff check app/
 
-# Type checking
+# Type check
 uv run mypy app/
 
-# Run all checks (lint + type-check)
-make check
-# or
-uv run ruff check app/ && uv run mypy app/
-
-# Format, check, and test
-make all
-```
-
-### Testing Commands
-
-```bash
-# Run all tests
+# Test
 uv run pytest
 
-# Run tests with coverage
-uv run pytest --cov=app --cov-report=term-missing --cov-report=html
-
-# Run a single test file
-uv run pytest tests/test_gateway.py
-
-# Run a single test function
-uv run pytest tests/test_gateway.py::test_connection
-
-# Run tests with verbose output
-uv run pytest -v
-
-# Run tests matching a pattern
-uv run pytest -k "test_gateway"
+# All checks
+make check
 ```
 
-### Makefile Targets
-```bash
-make help        # Show all available targets
-make install     # Install dependencies
-make dev         # Install dev dependencies
-make test        # Run tests
-make lint        # Run linting
-make format      # Format code
-make type-check  # Run type checking
-make check       # Run all checks
-make build       # Build Docker image
-make up          # Start Docker Compose
-make down        # Stop Docker Compose
-```
-
-## Code Style Guidelines
-
-### General Rules
-- **Python Version**: 3.13+
-- **Line Length**: 100 characters (strictly enforced by ruff)
-- **No comments**: Code should be self-documenting (explicit request from maintainers)
-- **Docstrings**: Required for all public classes, functions, and methods
-
-### Import Organization
-```python
-# 1. Standard library imports
-import asyncio
-from pathlib import Path
-from typing import Optional
-
-# 2. Third-party imports
-from fastapi import FastAPI
-from loguru import logger
-from pydantic import BaseModel
-
-# 3. Local imports (from app package)
-from app.config import config
-from app.gateway import gateway_manager
-```
+### Style Guidelines
+- **Python**: 3.13+
+- **Line length**: 100 chars (ruff enforced)
+- **No comments**: Code should be self-documenting
+- **Docstrings**: Required for public APIs
 
 ### Type Hints
-- All functions MUST have return type annotations
-- Use Python 3.13 union syntax: `str | int | float` (not `Union[str, int]`)
-- Use `dict[str, str]` instead of `Dict[str, str]`
-- Use `list[Type]` instead of `List[Type]`
-- Module-level variables should be typed: `gateway_manager: GatewayManager | None = None`
-- Type checking is relaxed and should not block development
-- Type hints are strongly encouraged for better code documentation and IDE support
-
-### Naming Conventions
-
-**Classes (PascalCase):**
 ```python
-class IBGatewayConnection:
-class StrategyManager:
-class HealthResponse(BaseModel):
+def process_data(input: str) -> dict[str, int]:
+    return {"count": len(input)}
+
+module_var: str | None = None
 ```
 
-**Functions and Variables (snake_case):**
+### Naming
+- Classes: `PascalCase`
+- Functions/variables: `snake_case`
+- Constants: `UPPER_SNAKE_CASE`
+- Private: `_prefix`
+
+## Code Patterns
+
+### Configuration
 ```python
-def connect_to_gateway():
-max_position_size = 100
+from pydantic_settings import BaseSettings
+
+class Config(BaseSettings):
+    field: str = Field(default="value", description="Description")
 ```
 
-**Module-level Constants (UPPER_SNAKE_CASE):**
+### Async
 ```python
-gateway_manager = GatewayManager()
-health_checker = HealthChecker()
-```
-
-**Private Methods (_prefix):**
-```python
-def _connect_with_retry(self) -> None:
-def _normalize_keys(data: dict) -> dict:
-```
-
-**Parameters**: Use descriptive names
-```python
-def send_order(self, req: OrderRequest) -> str:  # "req" is too short, prefer "order_request"
-```
-
-### Configuration Style
-Use Pydantic v2 with pydantic-settings. All config classes inherit from `BaseSettings`.
-
-```python
-class TradingConfig(BaseSettings):
-    max_position_size: int = Field(default=100, ge=1, description="Maximum position size")
-    risk_per_trade: float = Field(default=0.02, ge=0, le=1, description="Risk percentage")
-
-    @model_validator(mode="after")
-    def validate_take_profit(self) -> "TradingConfig":
-        if self.take_profit_pct <= self.stop_loss_pct:
-            raise ValueError("Take profit must be greater than stop loss")
-        return self
-```
-
-### Async/Await Patterns
-- Use `asyncio` for async operations
-- For blocking calls (like vn.py), use `run_in_executor`:
-```python
+# Use run_in_executor for blocking vn.py calls
 await asyncio.get_event_loop().run_in_executor(
-    None, lambda: self.main_engine.connect(setting, "IB")
+    None, lambda: self.engine.connect(setting, "IB")
 )
 ```
 
 ### Error Handling
-- Use specific exceptions (ConnectionError, ValueError, RuntimeError)
-- Always log errors with context
-- Re-raise exceptions after logging if necessary
 ```python
 try:
-    await gateway_manager.start()
+    await operation()
 except ConnectionError as e:
-    logger.error(f"Failed to connect to IB Gateway: {e}")
+    logger.error(f"Connection failed: {e}")
     raise
 ```
 
 ### Logging
-Use `loguru` for all logging:
 ```python
-logger.info("Starting application...")
-logger.warning("Gateway disconnected, attempting to reconnect...")
-logger.error(f"Failed to connect: {error}")
-
-# Structured logging for production
-logger.add(
-    sys.stdout,
-    level=log_level,
-    serialize=True,  # JSON format
-)
+from loguru import logger
+logger.info("Message")
+logger.warning("Warning")
+logger.error(f"Error: {error}")
 ```
 
-### Docstring Format (Google Style)
-```python
-def connect(self) -> None:
-    """Connect to IB Gateway.
+## FastAPI
 
-    Raises:
-        ConnectionError: If connection fails after retries
-    """
+### Router Structure
+```python
+from fastapi import APIRouter
+router = APIRouter(prefix="/api/v1/resource", tags=["resource"])
+
+@router.get("/endpoint")
+async def endpoint() -> ResponseModel:
+    return ResponseModel()
 ```
 
-### FastAPI Endpoints
-- Use `APIRouter` with `prefix` and `tags`
-- Use Pydantic models for request/response
-- Include proper error handling:
+### Response Models
 ```python
-@router.get("/health", response_model=HealthResponse)
-async def health_check() -> HealthResponse:
-    """Health check endpoint.
-
-    Returns:
-        HealthResponse with current status
-    """
-    return HealthResponse(...)
+class ResponseModel(BaseModel):
+    field: str
+    count: int
 ```
 
-### Strategy Development
-Inherit from `BaseCtaStrategy` and implement abstract methods:
+## Database & Data
+
+### CSV Import
+- Config: `config.historical_data.csv_dir` (default: `/app/data/raw/cooltrader`)
+- CSV format: `symbol,date,open,high,low,close,volume`
+- Date format: `%d/%m/%Y`
+
+### Data Access
 ```python
-class MyStrategy(BaseCtaStrategy):
-    def _setup_parameters(self) -> None:
-        self.fast_period: int = 10
+from app.database import get_database_manager
 
-    def on_init(self) -> None:
-        # Initialize indicators, BarGenerator, etc.
-        pass
-
-    def on_bar(self, bar: BarData) -> None:
-        # Process bar data
-        pass
+db = get_database_manager()
+db.save_bars(bars_list)
+stats = db.get_database_stats()
 ```
 
-### ASX Symbol Format
-vn.py symbols use format: `{SYMBOL}.{CURRENCY}-{TYPE}-{EXCHANGE}`
-```python
-# ASX direct routing (recommended)
-vt_symbol = "BHP-STK-ASX"
-vt_symbol = "CBA-STK-ASX"
+## API Endpoints
 
-# US stocks (SMART routing)
-vt_symbol = "AAPL-STK-SMART"
-```
+### Health
+- `GET /api/v1/health` - Service health
+- `GET /api/v1/health/ready` - Readiness
+- `GET /api/v1/health/live` - Liveness
 
-### Testing Philosophy: Focus on Business Logic
+### Data Import
+- `POST /api/v1/import/import/trigger` - Trigger CSV import
+- `GET /api/v1/import/database/stats` - DB statistics
+- `GET /api/v1/import/database/overview` - Symbol overview
+- `POST /api/v1/import/schedule/start` - Start scheduler
+- `POST /api/v1/import/schedule/stop` - Stop scheduler
 
-**Core Principle**: Only test code we write. Trust external packages to test themselves.
+## Testing
 
-We avoid:
-- Testing vn.py internals (their responsibility)
-- Testing FastAPI routing/middleware (their responsibility)
-- Mocking complex async frameworks (error-prone, brittle)
+### Philosophy
+Test business logic, not frameworks. Avoid mocks for vn.py/FastAPI.
 
-We test:
-- Pure business logic (CSV parsing, data transformation)
-- Simple integration flows with real components
-- Configuration validation
-
-### Testing Commands
+### Commands
 ```bash
-# Run all tests
+# All tests
 uv run pytest
 
-# Run tests with coverage
-uv run pytest --cov=app --cov-report=term-missing --cov-report=html
+# With coverage
+uv run pytest --cov=app --cov-report=term-missing
 
-# Run a single test file
-uv run pytest tests/test_gateway.py
+# Single file
+uv run pytest tests/test_file.py
 
-# Run a single test function
-uv run pytest tests/test_gateway.py::test_connection
+# Single test
+uv run pytest tests/test_file.py::test_function
 
-# Run tests with verbose output
-uv run pytest -v
-
-# Run tests matching a pattern
-uv run pytest -k "test_gateway"
+# Pattern match
+uv run pytest -k "test_import"
 ```
 
-### Important Notes
-1. **Always run `make all` before committing** (formats, lints, type-checks, and tests)
-2. **NEVER commit secrets** (.env is in .gitignore)
-3. **Docker for development**: Use `docker compose up -d` for running services
-4. **Health checks**: Expose endpoints at `/health`, `/health/ready`, `/health/live`
-5. **Retry logic**: Use `tenacity` for retrying network operations
-6. **Type safety**: Type hints are strongly encouraged but type checking is relaxed and should not block development
-7. **Testing philosophy**: Test business logic, not frameworks (see Testing Philosophy above)
-8. **Avoid mocks**: Mocks are brittle - prefer real objects or integration tests
+## Important Notes
 
-### Common Patterns
+1. **Always run checks before committing**: `make check`
+2. **Never commit secrets** (.env is in .gitignore)
+3. **Worktrees provide isolation** - separate venv, symlinked data/logs
+4. **Health checks required** - all services must be healthy
+5. **Type hints encouraged** but type checking is relaxed
+6. **Avoid mocks** - prefer real components
 
-**Pure logic tests (no mocks, no external dependencies):**
-```python
-import pytest
-from datetime import date
+## Configuration Files
 
-def test_date_string_format():
-    """Test date to string conversion for CSV filename."""
-    test_date = date(2024, 1, 15)
-    date_str = test_date.strftime("%Y%m%d")
-    assert date_str == "20240115"
-
-def test_csv_line_parsing():
-    """Test parsing a single CSV line."""
-    line = "BHP,14/01/2026,30.7,30.96,30.3,30.3,613098"
-    parts = line.split(",")
-
-    assert parts[0] == "BHP"
-    assert float(parts[2]) == 30.7
-```
-
-**Context managers for async lifecycle:**
-```python
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await startup()
-    yield
-    await shutdown()
-```
-
-**Validators in Pydantic models:**
-```python
-@field_validator("field_name")
-@classmethod
-def validate_field(cls, v: str) -> str:
-    # Validation logic
-    return v
-```
-
-**Handling optional dependencies:**
-```python
-from typing import Optional
-
-def get_connection(self) -> Optional[IBGatewayConnection]:
-    return self.connection
-```
+- `.env` - Environment variables
+- `config/settings.yaml` - App configuration
+- `docker-compose.yml` - Service definitions
+- `.opencode/opencode.json` - OpenCode permissions
