@@ -8,75 +8,14 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from loguru import logger
-from vnpy.event import EventEngine
-from vnpy.trader.engine import MainEngine
-from vnpy_ctastrategy import CtaEngine
 
+from app.api.v1 import router as v1_router
 from app.config import config
-from app.gateway import gateway_manager
-from app.health import health_checker
-from app.health import router as health_router
-from app.import_api import router as import_router
 from app.scheduler import get_scheduler
-from app.strategies import DEFAULT_PARAMETERS, STRATEGY_NAME, VT_SYMBOL
+from app.services.gateway_service import gateway_service
+from app.services.strategy_service import strategy_service
 
-cta_engine: CtaEngine | None = None
 scheduler = get_scheduler()
-
-
-def initialize_cta_engine(main_engine: MainEngine, event_engine: EventEngine) -> CtaEngine:
-    """Initialize CTA strategy engine.
-
-    Args:
-        main_engine: Main trading engine
-        event_engine: Event engine
-
-    Returns:
-        CtaEngine instance
-    """
-    global cta_engine
-    cta_engine = CtaEngine(main_engine, event_engine)
-    cta_engine.init_engine()
-
-    cta_engine.add_strategy(
-        "ASXMomentumStrategy",
-        STRATEGY_NAME,
-        VT_SYMBOL,
-        DEFAULT_PARAMETERS,
-    )
-
-    return cta_engine
-
-
-app = FastAPI(
-    title="peaches-trading-bot",
-    description="Production-ready headless trading bot for vn.py",
-    version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Application lifespan manager.
-
-    Args:
-        app: FastAPI instance
-
-    Yields:
-        None
-    """
-    await startup()
-
-    yield
-
-    await shutdown()
-
-
-app.include_router(health_router)
-app.include_router(import_router)
-
 
 _health_check_task: asyncio.Task[None] | None = None
 
@@ -88,8 +27,8 @@ async def startup() -> None:
     _setup_logging()
 
     try:
-        await _initialize_gateway()
-        await _initialize_strategies()
+        await gateway_service.start()
+        await strategy_service.start()
         if config.historical_data.import_enabled:
             await scheduler.start()
         _start_health_checks()
@@ -134,41 +73,6 @@ def _setup_logging() -> None:
     logger.info(f"Logging configured at {log_level} level")
 
 
-async def _initialize_gateway() -> None:
-    """Initialize IB Gateway connection."""
-    logger.info("Initializing IB Gateway connection...")
-
-    try:
-        await gateway_manager.start()
-        health_checker.set_gateway_status(True)
-        logger.info("IB Gateway connection established")
-    except Exception as e:
-        health_checker.set_gateway_status(False)
-        logger.error(f"Failed to initialize IB Gateway: {e}")
-        raise
-
-
-async def _initialize_strategies() -> None:
-    """Initialize trading strategies."""
-    logger.info("Initializing strategies...")
-
-    try:
-        connection = gateway_manager.get_connection()
-        if not connection or not connection.main_engine or not connection.event_engine:
-            raise RuntimeError("Gateway connection not available")
-
-        global cta_engine
-        cta_engine = initialize_cta_engine(connection.main_engine, connection.event_engine)
-        cta_engine.init_all_strategies()
-        cta_engine.start_all_strategies()
-
-        logger.info("Strategies initialized and started")
-
-    except Exception as e:
-        logger.error(f"Failed to initialize strategies: {e}")
-        raise
-
-
 def _start_health_checks() -> None:
     """Start health check monitoring."""
     global _health_check_task
@@ -178,33 +82,12 @@ def _start_health_checks() -> None:
         return
 
     logger.info("Health checks enabled")
-    _health_check_task = asyncio.create_task(_health_check_loop())
+    _health_check_task = asyncio.create_task(_run_health_checks())
 
 
-async def _health_check_loop() -> None:
+async def _run_health_checks() -> None:
     """Run periodic health checks."""
-    while True:
-        try:
-            connection = gateway_manager.get_connection()
-
-            if connection and connection.is_connected():
-                health_checker.set_gateway_status(True)
-            else:
-                health_checker.set_gateway_status(False)
-                if config.gateway.auto_reconnect:
-                    logger.warning("Gateway disconnected, attempting to reconnect...")
-                    try:
-                        await gateway_manager.start()
-                    except Exception as e:
-                        logger.error(f"Reconnection failed: {e}")
-
-            await asyncio.sleep(config.health.interval_seconds)
-
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            logger.error(f"Health check error: {e}")
-            await asyncio.sleep(config.health.interval_seconds)
+    await gateway_service.health_check_loop()
 
 
 async def shutdown() -> None:
@@ -219,13 +102,12 @@ async def shutdown() -> None:
             with suppress(asyncio.CancelledError):
                 await _health_check_task
 
-        if cta_engine is not None:
-            cta_engine.stop_all_strategies()
+        strategy_service.stop()
 
         if scheduler.is_running():
             await scheduler.stop()
 
-        await gateway_manager.stop()
+        await gateway_service.stop()
         logger.info("Application shutdown complete")
 
     except Exception as e:
@@ -237,9 +119,38 @@ async def cleanup() -> None:
     logger.info("Cleaning up resources...")
 
     try:
-        await gateway_manager.stop()
+        await gateway_service.stop()
     except Exception as e:
         logger.error(f"Cleanup error: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Application lifespan manager.
+
+    Args:
+        app: FastAPI instance
+
+    Yields:
+        None
+    """
+    await startup()
+
+    yield
+
+    await shutdown()
+
+
+app = FastAPI(
+    title="peaches-trading-bot",
+    description="Production-ready headless trading bot for vn.py",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan,
+)
+
+app.include_router(v1_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":
