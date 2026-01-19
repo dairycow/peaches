@@ -5,5 +5,10 @@
             "command": ["/home/hf/peaches/.venv/bin/pyright-langserver", "--stdio"],
             "extensions": [".py", ".pyi"]
         }
+    },
+    "permission": {
+        "external_directory": {
+            "/Users/hf/peaches*": "allow"
+        }
     }
 }
