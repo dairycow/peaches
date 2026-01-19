@@ -64,7 +64,7 @@ class IBGatewayConnection:
 
         setting: dict[str, int | str] = {
             "TWS地址": config.gateway.host,
-            "TWS端口": str(config.gateway.port),
+            "TWS端口": int(config.gateway.port),
             "客户号": config.gateway.client_id,
             "交易账户": "",
         }
