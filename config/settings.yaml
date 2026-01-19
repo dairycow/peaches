@@ -40,7 +40,7 @@ health:
 
 # Historical Data Configuration
 historical-data:
-  csv-dir: "/app/data/csv"
+  csv-dir: "/opt/peaches/data/raw/cooltrader"
   db-path: "/app/data/historical.db"
   import-enabled: true
 

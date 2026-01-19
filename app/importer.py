@@ -158,7 +158,7 @@ class CSVImporter:
         Returns:
             Import summary dictionary
         """
-        csv_files = sorted(self.csv_dir.glob("*.csv"))
+        csv_files = sorted(self.csv_dir.glob("**/*.csv"))
 
         if not csv_files:
             logger.warning(f"No CSV files found in {self.csv_dir}")
@@ -173,13 +173,22 @@ class CSVImporter:
 
         logger.info(f"Starting import of {len(csv_files)} files")
 
+        processed_files_path = self.csv_dir / ".processed_files.txt"
+        processed_files = self._load_processed_files(processed_files_path)
+
         results = []
         success = 0
         skipped = 0
         errors = 0
         total_bars_imported = 0
+        newly_processed_files = []
 
         for filepath in csv_files:
+            if str(filepath) in processed_files:
+                logger.info(f"Skipping already processed file: {filepath.name}")
+                skipped += 1
+                continue
+
             result = self.import_file(filepath)
             results.append(result)
 
@@ -187,10 +196,13 @@ class CSVImporter:
                 success += 1
                 if result["total_bars"] is not None:
                     total_bars_imported += result["total_bars"]
+                newly_processed_files.append(str(filepath))
             elif result["status"] == "skipped":
                 skipped += 1
             else:
                 errors += 1
+
+        self._save_processed_files(processed_files_path, processed_files, newly_processed_files)
 
         summary = ImportSummary(
             total_files=len(csv_files),
@@ -206,6 +218,42 @@ class CSVImporter:
         )
 
         return summary
+
+    def _load_processed_files(self, filepath: Path) -> set[str]:
+        """Load list of processed files.
+
+        Args:
+            filepath: Path to processed files tracking file
+
+        Returns:
+            Set of processed file paths
+        """
+        processed_files: set[str] = set()
+        if filepath.exists():
+            try:
+                with open(filepath) as f:
+                    processed_files = {line.strip() for line in f if line.strip()}
+                logger.info(f"Loaded {len(processed_files)} processed files from tracking")
+            except Exception as e:
+                logger.warning(f"Failed to load processed files tracking: {e}")
+        return processed_files
+
+    def _save_processed_files(self, filepath: Path, existing: set[str], new: list[str]) -> None:
+        """Save list of processed files.
+
+        Args:
+            filepath: Path to processed files tracking file
+            existing: Set of existing processed files
+            new: List of newly processed files
+        """
+        all_processed = existing | set(new)
+        try:
+            with open(filepath, "w") as f:
+                for processed_file in sorted(all_processed):
+                    f.write(f"{processed_file}\n")
+            logger.info(f"Saved {len(new)} newly processed files to tracking")
+        except Exception as e:
+            logger.warning(f"Failed to save processed files tracking: {e}")
 
 
 def create_importer(csv_dir: str | Path) -> CSVImporter:
