@@ -16,6 +16,7 @@ Worktrees are used for feature development, keeping main clean.
 
 # When done: merge back and cleanup
 ./merge-worktree.sh feature/new-feature
+# This merges to main, pushes to origin, and cleans up worktree
 ```
 
 ### Deployment
@@ -27,7 +28,7 @@ cd /opt/peaches
 ```
 
 Deployment:
-- Pulls latest from `origin/main`
+- Pulls latest from `origin/main` (use `merge-worktree.sh` to push first)
 - Validates secrets and env vars
 - Rebuilds Docker images
 - Restarts containers
