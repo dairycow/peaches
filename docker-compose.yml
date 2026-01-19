@@ -62,7 +62,7 @@ services:
       - ./config:/app/config:ro
       - ./app/strategies:/app/strategies:ro
       - peaches-bot-data:/app/data
-      - peaches-bot-logs:/app/logs
+      - ./logs:/app/logs
       - ./data/csv:/app/data/csv
     networks:
       - trading
@@ -84,8 +84,6 @@ volumes:
   ib-gateway-config:
     driver: local
   peaches-bot-data:
-    driver: local
-  peaches-bot-logs:
     driver: local
 
 networks:
