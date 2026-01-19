@@ -48,10 +48,12 @@ env/
 
 # Logs
 logs/
+logs-prod
 *.log
 
 # Data
 data/
+data-prod
 *.db
 *.sqlite
 *.sqlite3
