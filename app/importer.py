@@ -1,5 +1,6 @@
 """CSV importer for ASX historical data."""
 
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
@@ -40,6 +41,37 @@ class CSVImporter:
         """
         self.csv_dir = Path(csv_dir)
         self.db_manager = db_manager
+
+    def _extract_zip_files(self) -> int:
+        """Extract all zip files in csv_dir.
+
+        Returns:
+            Number of zip files extracted
+        """
+        zip_files = list(self.csv_dir.glob("**/*.zip"))
+        extracted_count = 0
+
+        for zip_path in zip_files:
+            try:
+                with zipfile.ZipFile(zip_path) as zf:
+                    csv_in_zip = [name for name in zf.namelist() if name.endswith(".csv")]
+
+                    for csv_name in csv_in_zip:
+                        csv_path = self.csv_dir / csv_name
+                        if not csv_path.exists():
+                            zf.extract(csv_name, self.csv_dir)
+                            logger.info(f"Extracted {csv_name} from {zip_path.name}")
+
+                    if csv_in_zip:
+                        extracted_count += 1
+
+            except Exception as e:
+                logger.warning(f"Failed to extract {zip_path.name}: {e}")
+
+        if extracted_count > 0:
+            logger.info(f"Extracted {extracted_count} zip file(s)")
+
+        return extracted_count
 
     def _parse_csv(self, filepath: Path) -> pl.DataFrame:
         """Parse CSV file using polars.
@@ -158,6 +190,7 @@ class CSVImporter:
         Returns:
             Import summary dictionary
         """
+        extracted_count = self._extract_zip_files()
         csv_files = sorted(self.csv_dir.glob("**/*.csv"))
 
         if not csv_files:
@@ -170,6 +203,9 @@ class CSVImporter:
                 total_bars_imported=0,
                 results=[],
             )
+
+        if extracted_count > 0:
+            logger.info(f"CSV files count after extraction: {len(csv_files)}")
 
         logger.info(f"Starting import of {len(csv_files)} files")
 
@@ -184,7 +220,7 @@ class CSVImporter:
         newly_processed_files = []
 
         for filepath in csv_files:
-            if str(filepath) in processed_files:
+            if str(filepath.relative_to(self.csv_dir)) in processed_files:
                 logger.info(f"Skipping already processed file: {filepath.name}")
                 skipped += 1
                 continue
@@ -196,13 +232,17 @@ class CSVImporter:
                 success += 1
                 if result["total_bars"] is not None:
                     total_bars_imported += result["total_bars"]
-                newly_processed_files.append(str(filepath))
+                newly_processed_files.append(str(filepath.relative_to(self.csv_dir)))
             elif result["status"] == "skipped":
                 skipped += 1
             else:
                 errors += 1
 
         self._save_processed_files(processed_files_path, processed_files, newly_processed_files)
+
+        if total_bars_imported > 0:
+            logger.info("Rebuilding database overview...")
+            self.db_manager.rebuild_overview()
 
         summary = ImportSummary(
             total_files=len(csv_files),
@@ -226,13 +266,36 @@ class CSVImporter:
             filepath: Path to processed files tracking file
 
         Returns:
-            Set of processed file paths
+            Set of processed file paths (relative to csv_dir)
         """
         processed_files: set[str] = set()
         if filepath.exists():
             try:
                 with open(filepath) as f:
-                    processed_files = {line.strip() for line in f if line.strip()}
+                    raw_lines = {line.strip() for line in f if line.strip()}
+
+                migrated = False
+                for line in raw_lines:
+                    try:
+                        path_obj = Path(line)
+
+                        if path_obj.is_absolute():
+                            try:
+                                path_obj.resolve()
+                                rel_path = str(path_obj.relative_to(self.csv_dir))
+                                processed_files.add(rel_path)
+                                migrated = True
+                            except ValueError:
+                                processed_files.add(line)
+                        else:
+                            processed_files.add(line)
+                    except Exception:
+                        logger.warning(f"Skipping invalid path in tracking: {line}")
+
+                if migrated:
+                    self._save_processed_files(filepath, processed_files, [])
+                    logger.info("Migrated processed files to relative paths")
+
                 logger.info(f"Loaded {len(processed_files)} processed files from tracking")
             except Exception as e:
                 logger.warning(f"Failed to load processed files tracking: {e}")
