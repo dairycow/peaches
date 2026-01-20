@@ -2,13 +2,32 @@
 
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+import peewee
 from loguru import logger
 from vnpy.trader.constant import Exchange, Interval
 from vnpy.trader.database import BarOverview, BaseDatabase, get_database
 from vnpy.trader.object import BarData
 
 from app.config import config
+
+if TYPE_CHECKING:
+    pass
+
+
+class DbBarOverview(peewee.Model):
+    """Peewee model for vn.py dbbaroverview table."""
+
+    symbol = peewee.CharField()
+    exchange = peewee.CharField()
+    interval = peewee.CharField()
+    start = peewee.DateField()
+    end = peewee.DateField()
+    count = peewee.IntegerField()
+
+    class Meta:
+        db_table = "dbbaroverview"
 
 
 class DatabaseManager:
@@ -162,6 +181,28 @@ class DatabaseManager:
                 for o in overview
             ],
         }
+
+    def rebuild_overview(self) -> bool:
+        """Rebuild bar overview table from actual bar data.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            logger.info("Rebuilding bar overview table")
+
+            DbBarOverview.bind(self.database.db)
+            DbBarOverview.delete().execute()
+
+            logger.info("Deleted existing bar overview records")
+
+            self.database.init_bar_overview()
+
+            logger.info("Successfully rebuilt bar overview table")
+            return True
+        except Exception as e:
+            logger.error(f"Error rebuilding bar overview: {e}")
+            return False
 
 
 _database_manager: DatabaseManager | None = None
