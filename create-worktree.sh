@@ -45,6 +45,9 @@ mkdir -p .opencode
 cp "$PROJECT_ROOT/.opencode/opencode.json" .opencode/
 sed -i "s|$PROJECT_ROOT/\.venv|$WORKTREE_PATH/.venv|g" .opencode/opencode.json
 
+# Ignore opencode.json changes in worktree
+git update-index --assume-unchanged .opencode/opencode.json
+
 echo "Worktree ready at: $WORKTREE_PATH"
 echo ""
 echo "To merge into main and clean up:"
