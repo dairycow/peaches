@@ -100,6 +100,50 @@ class AnalysisConfig(BaseSettings):
         return self
 
 
+class ASXScannerConfig(BaseSettings):
+    """ASX scanner configuration."""
+
+    url: str = Field(
+        default="https://www.asx.com.au/asx/v2/statistics/todayAnns.do",
+        description="ASX announcements URL",
+    )
+    scan_schedule: str = Field(default="30 10 * * 1-5", description="Scan cron schedule (AEST)")
+    timeout: int = Field(default=10, ge=1, description="Request timeout in seconds")
+    exclude_tickers: list[str] = Field(default_factory=list, description="Tickers to exclude")
+    min_ticker_length: int = Field(default=3, ge=1, le=6, description="Minimum ticker length")
+    max_ticker_length: int = Field(default=6, ge=1, le=6, description="Maximum ticker length")
+
+
+class DiscordConfig(BaseSettings):
+    """Discord webhook configuration."""
+
+    enabled: bool = Field(default=True, description="Enable Discord notifications")
+    webhook_url: str = Field(default="", description="Discord webhook URL")
+    username: str = Field(default="peaches-bot", description="Discord bot username")
+
+
+class NotificationsConfig(BaseSettings):
+    """Notifications configuration."""
+
+    discord: DiscordConfig = Field(default_factory=DiscordConfig)
+
+
+class TriggerConfig(BaseSettings):
+    """Strategy trigger configuration."""
+
+    enabled: bool = Field(default=True, description="Enable strategy triggering")
+    strategies: list[str] = Field(default_factory=list, description="Strategies to trigger")
+
+
+class ScannerConfig(BaseSettings):
+    """Scanner service configuration."""
+
+    enabled: bool = Field(default=True, description="Enable scanner service")
+    asx: ASXScannerConfig = Field(default_factory=ASXScannerConfig)
+    notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
+    triggers: TriggerConfig = Field(default_factory=TriggerConfig)
+
+
 class Config(BaseSettings):
     """Main application configuration."""
 
@@ -117,6 +161,7 @@ class Config(BaseSettings):
     historical_data: HistoricalDataConfig = Field(default_factory=HistoricalDataConfig)
     cooltrader: CoolTraderConfig = Field(default_factory=CoolTraderConfig)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
+    scanners: ScannerConfig = Field(default_factory=ScannerConfig)
 
     @classmethod
     def from_yaml(cls, config_path: str | Path) -> "Config":
@@ -149,6 +194,7 @@ class Config(BaseSettings):
         historical_data_data = config_dict.pop("historical_data", {})
         cooltrader_data = config_dict.pop("cooltrader", {})
         analysis_data = config_dict.pop("analysis", {})
+        scanners_data = config_dict.pop("scanners", {})
 
         database_config = DatabaseConfig(**database_data)
         logging_config = LoggingConfig(**logging_data)
@@ -157,6 +203,7 @@ class Config(BaseSettings):
         historical_data_config = HistoricalDataConfig(**historical_data_data)
         cooltrader_config = CoolTraderConfig(**cooltrader_data)
         analysis_config = AnalysisConfig(**analysis_data)
+        scanners_config = ScannerConfig(**scanners_data)
 
         return cls(
             database=database_config,
@@ -166,6 +213,7 @@ class Config(BaseSettings):
             historical_data=historical_data_config,
             cooltrader=cooltrader_config,
             analysis=analysis_config,
+            scanners=scanners_config,
         )
 
     @staticmethod

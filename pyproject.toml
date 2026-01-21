@@ -35,6 +35,8 @@ dependencies = [
     "apscheduler>=3.10.0",
     "typer>=0.15.0",
     "pyarrow>=23.0.0",
+    "beautifulsoup4>=4.14.3",
+    "lxml>=6.0.2",
 ]
 
 [project.optional-dependencies]

@@ -6,7 +6,6 @@ from typing import cast
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from loguru import logger
 from pydantic import BaseModel
-from zoneinfo import ZoneInfo
 
 from app.config import config
 from app.cooltrader import create_downloader
