@@ -14,7 +14,7 @@ def test_get_download_url_format():
         downloader = CoolTraderDownloader()
 
     url = downloader._get_download_url(date(2024, 1, 15))
-    assert url == "https://data.cooltrader.com.au/amember/eodfiles/nextday/csv/20240115.csv"
+    assert url == "https://www.data.cooltrader.com.au/amember/eodfiles/nextday/csv/20240115.csv"
 
 
 def test_get_download_url_various_dates():
@@ -37,7 +37,7 @@ def test_get_download_url_various_dates():
         url = downloader._get_download_url(test_date)
         assert (
             url
-            == f"https://data.cooltrader.com.au/amember/eodfiles/nextday/csv/{expected_filename}"
+            == f"https://www.data.cooltrader.com.au/amember/eodfiles/nextday/csv/{expected_filename}"
         )
 
 
