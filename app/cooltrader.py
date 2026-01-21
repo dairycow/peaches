@@ -49,6 +49,7 @@ class CoolTraderDownloader:
             response.raise_for_status()
 
             self._authenticated = True
+            logger.info(f"Login response cookies: {dict(response.cookies)}")
             self._session_cookie = response.cookies.get("PHPSESSID")
             logger.info(
                 f"Successfully logged in to CoolTrader. Session cookie: {self._session_cookie}"
