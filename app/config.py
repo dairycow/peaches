@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from ruamel.yaml import YAML
 
@@ -115,6 +115,12 @@ class Config(BaseSettings):
     historical_data: HistoricalDataConfig = Field(default_factory=HistoricalDataConfig)
     cooltrader: CoolTraderConfig = Field(default_factory=CoolTraderConfig)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
+
+    @model_validator(mode="after")
+    def validate_credentials(self) -> "Config":
+        if not self.cooltrader.username or not self.cooltrader.password:
+            raise ValueError("COOLTRADER_USERNAME and COOLTRADER_PASSWORD must be set")
+        return self
 
     @classmethod
     def from_yaml(cls, config_path: str | Path) -> "Config":
