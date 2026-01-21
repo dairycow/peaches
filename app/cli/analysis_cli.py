@@ -6,21 +6,33 @@ from pathlib import Path
 import typer
 from loguru import logger
 
+from app.analysis.announcement_scraper import AnnouncementScraper
 from app.analysis.backtest_engine import run_backtest
-from app.analysis.data_loader import get_symbol_data_range, list_available_symbols
+from app.analysis.data_loader import (
+    get_symbol_data_range,
+    list_available_symbols,
+    load_bars_batch,
+)
 from app.analysis.results import ResultsExporter
+from app.analysis.scanners import GapScanner, MomentumScanner
+from app.analysis.stock_data import StockData
 from app.analysis.strategies.donchian_breakout import DonchianBreakoutStrategy
 from app.config import config
+from vnpy.trader.constant import Exchange, Interval
 
 app = typer.Typer(
     name="peaches-analysis",
-    help="Lightweight CLI tool for strategy backtesting with daily data from data-prod/trading.db",
+    help="Lightweight CLI tool for strategy backtesting and analysis",
 )
 data_app = typer.Typer(name="data", help="Data management commands")
 backtest_app = typer.Typer(name="backtest", help="Backtesting commands")
+scanner_app = typer.Typer(name="scanner", help="Pattern scanning commands")
+announcement_app = typer.Typer(name="announcements", help="ASX announcement scraping")
 
 app.add_typer(data_app, name="data")
 app.add_typer(backtest_app, name="backtest")
+app.add_typer(scanner_app, name="scanner")
+app.add_typer(announcement_app, name="announcements")
 
 
 @data_app.command("list")
@@ -257,6 +269,221 @@ def run_batch_backtest(
                 pl.col("max_drawdown").map_elements(lambda x: f"{x:.2%}"),
             )
         )
+
+
+@announcement_app.command("get")
+def get_announcements(
+    ticker: str = typer.Argument(..., help="ASX ticker symbol"),
+    period: str = typer.Option(
+        "1M", help="Period: 1M, 3M, 6M, 1Y, YYYY, YYYY-MM, YYYY-MM-DD to YYYY-MM-DD"
+    ),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
+) -> None:
+    """Get ASX announcements for a ticker."""
+    scraper = AnnouncementScraper(timeout=config.scanner.announcement_timeout)
+    start_date, end_date = scraper.parse_date_range(period)
+    announcements = scraper.get_announcements(ticker, start_date, end_date)
+
+    result = {
+        "ticker": ticker,
+        "period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
+        "count": len(announcements),
+        "announcements": announcements,
+    }
+
+    if output:
+        import json
+
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with open(output, "w") as f:
+            json.dump(result, f, indent=2)
+        typer.echo(f"Announcements saved to: {output}")
+    else:
+        typer.echo_json(result)
+
+
+@scanner_app.command("momentum")
+def scan_momentum(
+    symbol: str | None = typer.Option(None, help="Specific symbol (or scan all)"),
+    start_date: str = typer.Option(..., help="Start date (YYYY-MM-DD)"),
+    end_date: str = typer.Option(..., help="End date (YYYY-MM-DD)"),
+    min_days: int = typer.Option(
+        config.scanner.momentum_min_days, help="Minimum consecutive up days"
+    ),
+    limit: int = typer.Option(50, help="Max results to return"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
+) -> None:
+    """Scan for momentum bursts."""
+    if not config.scanner.enabled:
+        typer.echo("Scanners are disabled in configuration")
+        raise typer.Exit(code=1)
+
+    try:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError as e:
+        typer.echo(f"Invalid date format: {e}")
+        typer.echo("Use ISO format: YYYY-MM-DD")
+        raise typer.Exit(code=1)  # noqa: B904
+
+    symbols = [symbol] if symbol else list_available_symbols()
+
+    typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
+
+    bars_dict = load_bars_batch(symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY)
+    stocks_dict = {ticker: StockData(ticker, bars) for ticker, bars in bars_dict.items() if bars}
+
+    if not stocks_dict:
+        typer.echo("No data found for any symbols")
+        raise typer.Exit(code=1)
+
+    scanner = MomentumScanner(stocks_dict)
+
+    if symbol:
+        result = scanner.analyze_stock_patterns(symbol, start_dt, end_dt)
+    else:
+        result = {
+            "period": {"start": start_date, "end": end_date},
+            "min_days": min_days,
+            "momentum_bursts": scanner.find_all_momentum_bursts(
+                start_dt, end_dt, min_days=min_days, limit=limit
+            ),
+        }
+
+    if output:
+        import json
+
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with open(output, "w") as f:
+            json.dump(result, f, indent=2)
+        typer.echo(f"Results saved to: {output}")
+    else:
+        typer.echo_json(result)
+
+
+@scanner_app.command("consolidation")
+def scan_consolidation(
+    symbol: str | None = typer.Option(None, help="Specific symbol (or scan all)"),
+    start_date: str = typer.Option(..., help="Start date (YYYY-MM-DD)"),
+    end_date: str = typer.Option(..., help="End date (YYYY-MM-DD)"),
+    max_range_pct: float = typer.Option(
+        config.scanner.consolidation_max_range_pct, help="Max price range %"
+    ),
+    min_days: int = typer.Option(
+        config.scanner.consolidation_min_days, help="Min consolidation duration"
+    ),
+    limit: int = typer.Option(50, help="Max results to return"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
+) -> None:
+    """Scan for consolidation patterns."""
+    if not config.scanner.enabled:
+        typer.echo("Scanners are disabled in configuration")
+        raise typer.Exit(code=1)
+
+    try:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError as e:
+        typer.echo(f"Invalid date format: {e}")
+        typer.echo("Use ISO format: YYYY-MM-DD")
+        raise typer.Exit(code=1)  # noqa: B904
+
+    symbols = [symbol] if symbol else list_available_symbols()
+
+    typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
+
+    bars_dict = load_bars_batch(symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY)
+    stocks_dict = {ticker: StockData(ticker, bars) for ticker, bars in bars_dict.items() if bars}
+
+    if not stocks_dict:
+        typer.echo("No data found for any symbols")
+        raise typer.Exit(code=1)
+
+    scanner = MomentumScanner(stocks_dict)
+
+    if symbol:
+        result = scanner.analyze_stock_patterns(symbol, start_dt, end_dt)
+    else:
+        result = {
+            "period": {"start": start_date, "end": end_date},
+            "max_range_pct": max_range_pct,
+            "min_days": min_days,
+            "consolidations": scanner.find_all_consolidations(
+                start_dt, end_dt, max_range_pct=max_range_pct, min_days=min_days, limit=limit
+            ),
+        }
+
+    if output:
+        import json
+
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with open(output, "w") as f:
+            json.dump(result, f, indent=2)
+        typer.echo(f"Results saved to: {output}")
+    else:
+        typer.echo_json(result)
+
+
+@scanner_app.command("gaps")
+def scan_gaps(
+    symbol: str | None = typer.Option(None, help="Specific symbol (or scan all)"),
+    start_date: str = typer.Option(..., help="Start date (YYYY-MM-DD)"),
+    end_date: str = typer.Option(..., help="End date (YYYY-MM-DD)"),
+    gap_threshold: float = typer.Option(
+        config.scanner.gap_threshold_pct, help="Minimum gap percentage"
+    ),
+    volume_multiplier: float = typer.Option(
+        config.scanner.gap_volume_multiplier, help="Volume multiple threshold"
+    ),
+    min_volume: int = typer.Option(config.scanner.gap_min_volume, help="Minimum daily volume"),
+    limit: int = typer.Option(50, help="Max results to return"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
+) -> None:
+    """Scan for significant price gaps."""
+    if not config.scanner.enabled:
+        typer.echo("Scanners are disabled in configuration")
+        raise typer.Exit(code=1)
+
+    try:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError as e:
+        typer.echo(f"Invalid date format: {e}")
+        typer.echo("Use ISO format: YYYY-MM-DD")
+        raise typer.Exit(code=1)  # noqa: B904
+
+    symbols = [symbol] if symbol else list_available_symbols()
+
+    typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
+
+    bars_dict = load_bars_batch(symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY)
+    stocks_dict = {ticker: StockData(ticker, bars) for ticker, bars in bars_dict.items() if bars}
+
+    if not stocks_dict:
+        typer.echo("No data found for any symbols")
+        raise typer.Exit(code=1)
+
+    scanner = GapScanner(stocks_dict)
+
+    result = {
+        "period": {"start": start_date, "end": end_date},
+        "gap_threshold_pct": gap_threshold,
+        "volume_multiplier": volume_multiplier,
+        "min_volume": min_volume,
+        "gaps": scanner.find_gaps(start_dt, end_dt, gap_threshold, volume_multiplier, min_volume)[
+            :limit
+        ],
+    }
+
+    if output:
+        import json
+
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with open(output, "w") as f:
+            json.dump(result, f, indent=2)
+        typer.echo(f"Results saved to: {output}")
+    else:
+        typer.echo_json(result)
 
 
 def cli() -> None:
