@@ -84,18 +84,6 @@ class CoolTraderConfig(BaseSettings):
     download_schedule: str = Field(default="0 10 * * *", description="Download cron schedule")
     import_schedule: str = Field(default="5 10 * * *", description="Import cron schedule")
 
-    @field_validator("username", "password")
-    @classmethod
-    def check_credentials(cls, info) -> "CoolTraderConfig":
-        from os import environ
-
-        if not info.data.get("username") or not info.data.get("password"):
-            raise ValueError("COOLTRADER_USERNAME and COOLTRADER_PASSWORD must be set")
-        logger.debug(
-            f"Credentials validated: username={info.data.get('username') or environ.get('COOLTRADER_USERNAME')}"
-        )
-        return info
-
 
 class AnalysisConfig(BaseSettings):
     """Backtesting analysis configuration."""
@@ -188,20 +176,6 @@ class Config(BaseSettings):
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     scanners: ScannerServiceConfig = Field(default_factory=ScannerServiceConfig)
     scanner: GapScannerConfig = Field(default_factory=GapScannerConfig)
-
-    @field_validator("username", "password", mode="before")
-    @classmethod
-    def check_credentials(cls, info) -> "CoolTraderConfig":
-        from os import environ
-
-        username = info.data.get("username") or environ.get("COOLTRADER_USERNAME", "")
-        password = info.data.get("password") or environ.get("COOLTRADER_PASSWORD", "")
-        if not username or not password:
-            raise ValueError("COOLTRADER_USERNAME and COOLTRADER_PASSWORD must be set")
-        logger.debug(
-            f"Credentials validated: username={'*' * (len(username) - 2) if username else 'N/A'}"
-        )
-        return info | cls.model_copy(update={"username": username, "password": password})
 
     @classmethod
     def from_yaml(cls, config_path: str | Path) -> "Config":
