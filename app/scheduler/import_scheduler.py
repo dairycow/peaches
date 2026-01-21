@@ -2,7 +2,10 @@
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
+
+if TYPE_CHECKING:
+    pass
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -183,3 +186,16 @@ def get_scheduler() -> ImportScheduler:
         )
         scheduler.add_jobs(run_download, run_import)
     return scheduler
+
+
+if TYPE_CHECKING:
+
+    async def reset_scheduler() -> None:
+        """Reset scheduler singleton for test isolation.
+
+        Stops scheduler if running and sets to None.
+        """
+        global scheduler
+        if scheduler is not None and scheduler.is_running():
+            await scheduler.stop()
+        scheduler = None
