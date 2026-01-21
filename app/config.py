@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from loguru import logger
-from pydantic import Field, model_validator, field_validator, ValidationError
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from ruamel.yaml import YAML
 
@@ -189,7 +189,7 @@ class Config(BaseSettings):
     scanners: ScannerServiceConfig = Field(default_factory=ScannerServiceConfig)
     scanner: GapScannerConfig = Field(default_factory=GapScannerConfig)
 
-    @field_validator("username", "password")
+    @field_validator("username", "password", mode="before")
     @classmethod
     def check_credentials(cls, info) -> "CoolTraderConfig":
         from os import environ
