@@ -83,6 +83,14 @@ class CoolTraderConfig(BaseSettings):
     download_schedule: str = Field(default="0 10 * * *", description="Download cron schedule")
     import_schedule: str = Field(default="5 10 * * *", description="Import cron schedule")
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        from loguru import logger
+
+        logger.debug(
+            f"CoolTraderConfig loaded: username='{self.username}', password_set={bool(self.password)}"
+        )
+
 
 class AnalysisConfig(BaseSettings):
     """Backtesting analysis configuration."""
