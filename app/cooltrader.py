@@ -18,6 +18,7 @@ class CoolTraderDownloader:
         """Initialize CoolTrader downloader."""
         self.client: AsyncClient | None = None
         self._authenticated = False
+        self._session_cookie: str | None = None
         self.base_url = config.cooltrader.base_url
         self.username = config.cooltrader.username
         self.password = config.cooltrader.password
@@ -48,8 +49,9 @@ class CoolTraderDownloader:
             response.raise_for_status()
 
             self._authenticated = True
+            self._session_cookie = response.cookies.get("PHPSESSID")
             logger.info(
-                f"Successfully logged in to CoolTrader. Response cookies: {dict(response.cookies)}"
+                f"Successfully logged in to CoolTrader. Session cookie: {self._session_cookie}"
             )
 
         except Exception as e:
@@ -103,7 +105,12 @@ class CoolTraderDownloader:
             logger.debug(f"Requesting URL: {url}")
             logger.debug(f"Client cookies before request: {dict(self.client.cookies)}")
 
-            response = await self.client.get(url)
+            headers = {}
+            if self._session_cookie:
+                headers["Cookie"] = f"PHPSESSID={self._session_cookie}"
+                logger.debug(f"Adding session cookie to headers: PHPSESSID={self._session_cookie}")
+
+            response = await self.client.get(url, headers=headers)
 
             logger.debug(f"Response status: {response.status_code}")
             logger.debug(f"Response content-type: {response.headers.get('content-type')}")
