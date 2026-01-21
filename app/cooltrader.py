@@ -48,7 +48,9 @@ class CoolTraderDownloader:
             response.raise_for_status()
 
             self._authenticated = True
-            logger.info("Successfully logged in to CoolTrader")
+            logger.info(
+                f"Successfully logged in to CoolTrader. Response cookies: {dict(response.cookies)}"
+            )
 
         except Exception as e:
             logger.error(f"Failed to login to CoolTrader: {e}")
@@ -97,7 +99,16 @@ class CoolTraderDownloader:
         try:
             if self.client is None:
                 raise RuntimeError("HTTP client not initialized")
+
+            logger.debug(f"Requesting URL: {url}")
+            logger.debug(f"Client cookies before request: {dict(self.client.cookies)}")
+
             response = await self.client.get(url)
+
+            logger.debug(f"Response status: {response.status_code}")
+            logger.debug(f"Response content-type: {response.headers.get('content-type')}")
+            logger.debug(f"Response content length: {len(response.content)}")
+
             response.raise_for_status()
 
             with open(output_path, "wb") as f:
