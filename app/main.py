@@ -5,17 +5,19 @@ import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI
 from loguru import logger
 
 from app.api.v1 import router as v1_router
 from app.config import config
-from app.scheduler import get_scheduler
+from app.scheduler import get_scanner_scheduler, get_scheduler
 from app.services.gateway_service import gateway_service
 from app.services.strategy_service import strategy_service
 
-scheduler = get_scheduler()
+scheduler: Any = None
+scanner_scheduler: Any = None
 
 _health_check_task: asyncio.Task[None] | None = None
 
@@ -31,11 +33,17 @@ async def startup() -> None:
 
     _setup_logging()
 
+    global scheduler, scanner_scheduler
+    scheduler = get_scheduler()
+    scanner_scheduler = get_scanner_scheduler()
+
     try:
         await gateway_service.start()
         await strategy_service.start()
         if config.historical_data.import_enabled:
             await scheduler.start()
+        if config.scanners.enabled:
+            await scanner_scheduler.start()
         _start_health_checks()
         logger.info("Application started successfully")
     except Exception as e:
@@ -111,6 +119,9 @@ async def shutdown() -> None:
 
         if scheduler.is_running():
             await scheduler.stop()
+
+        if scanner_scheduler.is_running():
+            await scanner_scheduler.stop()
 
         await gateway_service.stop()
         logger.info("Application shutdown complete")
