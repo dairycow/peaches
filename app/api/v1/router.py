@@ -4,8 +4,8 @@ from fastapi import APIRouter
 
 from app.api.v1.health import router as health_router
 from app.api.v1.historical_data import router as historical_data_router
-from app.api.v1.scanners import router as scanners_router
 from app.api.v1.scanner import router as scanner_router
+from app.api.v1.scanners import router as scanners_router
 
 router = APIRouter()
 

@@ -2,10 +2,9 @@
 
 from typing import TYPE_CHECKING
 
-from loguru import logger
 from ibapi.common import TagValue
 from ibapi.scanner import ScannerSubscription
-from ibapi.wrapper import EWrapper
+from loguru import logger
 
 from app.scanner.models import GapCandidate
 
@@ -69,8 +68,15 @@ class IBScanner:
         self._scanner_callbacks.pop(req_id, None)
         logger.info(f"Cancelled scanner request {req_id}")
 
-    def scannerDataCallback(
-        self, req_id: int, rank: int, contract_details, distance, benchmark, projection, legsStr
+    def scannerDataCallback(  # noqa: N802
+        self,
+        req_id: int,
+        rank: int,
+        contract_details,
+        distance,
+        benchmark,
+        projection,  # noqa: ARG002
+        legsStr,  # noqa: ARG002,N803
     ) -> None:
         """Handle scanner data callback.
 
@@ -105,7 +111,9 @@ class IBScanner:
                 f"(rank={rank}, gap={distance}, benchmark={benchmark})"
             )
 
-    def scannerDataEndCallback(self, req_id: int) -> None:
+    def scannerDataEndCallback(  # noqa: N802
+        self, req_id: int
+    ) -> None:
         """Handle scanner data end callback.
 
         Args:

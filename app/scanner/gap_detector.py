@@ -7,8 +7,6 @@ from loguru import logger
 from vnpy.trader.constant import Exchange, Interval
 from vnpy.trader.object import BarData
 
-from app.database import get_database_manager
-
 
 class OpeningRangeResult(NamedTuple):
     """Opening range result for a stock."""
