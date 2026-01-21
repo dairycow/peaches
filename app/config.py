@@ -84,6 +84,22 @@ class CoolTraderConfig(BaseSettings):
     import_schedule: str = Field(default="5 10 * * *", description="Import cron schedule")
 
 
+class AnalysisConfig(BaseSettings):
+    """Backtesting analysis configuration."""
+
+    output_dir: str = Field(default="/app/data/analysis", description="Analysis output directory")
+    default_capital: float = Field(default=1_000_000, description="Default backtest capital")
+    commission_rate: float = Field(default=0.001, description="Commission rate")
+    slippage: float = Field(default=0.02, description="Slippage percentage (2%)")
+    fixed_commission: float = Field(default=6.6, description="Fixed commission per trade ($6.60)")
+
+    @model_validator(mode="after")
+    def make_path_absolute(self) -> "AnalysisConfig":
+        """Ensure output path is absolute."""
+        self.output_dir = str(Path(self.output_dir).absolute())
+        return self
+
+
 class Config(BaseSettings):
     """Main application configuration."""
 
@@ -100,6 +116,7 @@ class Config(BaseSettings):
     health: HealthCheckConfig = Field(default_factory=HealthCheckConfig)
     historical_data: HistoricalDataConfig = Field(default_factory=HistoricalDataConfig)
     cooltrader: CoolTraderConfig = Field(default_factory=CoolTraderConfig)
+    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
 
     @classmethod
     def from_yaml(cls, config_path: str | Path) -> "Config":
@@ -131,6 +148,7 @@ class Config(BaseSettings):
         health_data = config_dict.pop("health", {})
         historical_data_data = config_dict.pop("historical_data", {})
         cooltrader_data = config_dict.pop("cooltrader", {})
+        analysis_data = config_dict.pop("analysis", {})
 
         database_config = DatabaseConfig(**database_data)
         logging_config = LoggingConfig(**logging_data)
@@ -138,6 +156,7 @@ class Config(BaseSettings):
         health_config = HealthCheckConfig(**health_data)
         historical_data_config = HistoricalDataConfig(**historical_data_data)
         cooltrader_config = CoolTraderConfig(**cooltrader_data)
+        analysis_config = AnalysisConfig(**analysis_data)
 
         return cls(
             database=database_config,
@@ -146,6 +165,7 @@ class Config(BaseSettings):
             health=health_config,
             historical_data=historical_data_config,
             cooltrader=cooltrader_config,
+            analysis=analysis_config,
         )
 
     @staticmethod
