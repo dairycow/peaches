@@ -51,6 +51,8 @@ services:
     depends_on:
       ib-gateway:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       - IB_GATEWAY_HOST=ib-gateway
       - IB_GATEWAY_PORT=${IB_GATEWAY_PORT:-4004}
