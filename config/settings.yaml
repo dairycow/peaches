@@ -81,3 +81,13 @@ scanners:
     enabled: true
     strategies:
       - "asx_momentum"  # Placeholder for named strategies
+
+# Gap Scanner Configuration
+scanner:
+  gap-threshold: 3.0
+  min-price: 1.0
+  min-volume: 100000
+  max-results: 50
+  opening-range-time: "10:05"
+  timezone: "Australia/Sydney"
+  enable-scanner: false
