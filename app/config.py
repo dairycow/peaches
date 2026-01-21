@@ -3,7 +3,8 @@
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, model_validator
+from loguru import logger
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from ruamel.yaml import YAML
 
@@ -83,13 +84,19 @@ class CoolTraderConfig(BaseSettings):
     download_schedule: str = Field(default="0 10 * * *", description="Download cron schedule")
     import_schedule: str = Field(default="5 10 * * *", description="Import cron schedule")
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        from loguru import logger
+    @field_validator("username", "password", mode="before")
+    @classmethod
+    def check_credentials(cls, info) -> "CoolTraderConfig":
+        from os import environ
 
+        username = info.data.get("username") or environ.get("COOLTRADER_USERNAME", "")
+        password = info.data.get("password") or environ.get("COOLTRADER_PASSWORD", "")
+        if not username or not password:
+            raise ValueError("COOLTRADER_USERNAME and COOLTRADER_PASSWORD must be set")
         logger.debug(
-            f"CoolTraderConfig loaded: username='{self.username}', password_set={bool(self.password)}"
+            f"Credentials validated: username={'*' * (len(username) - 2) if username else 'N/A'}"
         )
+        return info | cls.model_copy(update={"username": username, "password": password})
 
 
 class AnalysisConfig(BaseSettings):
@@ -143,8 +150,8 @@ class TriggerConfig(BaseSettings):
     strategies: list[str] = Field(default_factory=list, description="Strategies to trigger")
 
 
-class ScannersConfig(BaseSettings):
-    """Scanner service configuration."""
+class ScannerServiceConfig(BaseSettings):
+    """Scanner service configuration for ASX announcements."""
 
     enabled: bool = Field(default=True, description="Enable scanner service")
     asx: ASXScannerConfig = Field(default_factory=ASXScannerConfig)
@@ -152,17 +159,18 @@ class ScannersConfig(BaseSettings):
     triggers: TriggerConfig = Field(default_factory=TriggerConfig)
 
 
-class ScannerConfig(BaseSettings):
-    """Scanner configuration."""
+class GapScannerConfig(BaseSettings):
+    """Gap scanner configuration."""
 
-    enabled: bool = Field(default=True, description="Enable scanners")
-    gap_threshold_pct: float = Field(default=10.0, description="Minimum gap percentage")
-    gap_volume_multiplier: float = Field(default=2.0, description="Volume multiple threshold")
-    gap_min_volume: int = Field(default=50000, description="Minimum daily volume")
-    momentum_min_days: int = Field(default=3, description="Min consecutive up days")
-    consolidation_max_range_pct: float = Field(default=10.0, description="Max price range %")
-    consolidation_min_days: int = Field(default=5, description="Min consolidation duration")
-    announcement_timeout: int = Field(default=30, description="Request timeout seconds")
+    gap_threshold: float = Field(default=3.0, ge=0, le=50, description="Minimum gap percentage")
+    min_price: float = Field(default=1.0, ge=0.01, description="Minimum stock price")
+    min_volume: int = Field(default=100000, gt=0, description="Minimum daily volume")
+    max_results: int = Field(default=50, ge=1, le=50, description="Maximum results to return")
+    opening_range_time: str = Field(
+        default="10:05", description="Opening range sample time (HH:MM)"
+    )
+    timezone: str = Field(default="Australia/Sydney", description="Scanner timezone")
+    enable_scanner: bool = Field(default=False, description="Enable opening range scanner")
 
 
 class Config(BaseSettings):
@@ -180,14 +188,8 @@ class Config(BaseSettings):
     historical_data: HistoricalDataConfig = Field(default_factory=HistoricalDataConfig)
     cooltrader: CoolTraderConfig = Field(default_factory=CoolTraderConfig)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
-    scanners: ScannersConfig = Field(default_factory=ScannersConfig)
-    scanner: ScannerConfig = Field(default_factory=ScannerConfig)
-
-    @model_validator(mode="after")
-    def validate_credentials(self) -> "Config":
-        if not self.cooltrader.username or not self.cooltrader.password:
-            raise ValueError("COOLTRADER_USERNAME and COOLTRADER_PASSWORD must be set")
-        return self
+    scanners: ScannerServiceConfig = Field(default_factory=ScannerServiceConfig)
+    scanner: GapScannerConfig = Field(default_factory=GapScannerConfig)
 
     @classmethod
     def from_yaml(cls, config_path: str | Path) -> "Config":
@@ -230,8 +232,8 @@ class Config(BaseSettings):
         historical_data_config = HistoricalDataConfig(**historical_data_data)
         cooltrader_config = CoolTraderConfig(**cooltrader_data)
         analysis_config = AnalysisConfig(**analysis_data)
-        scanners_config = ScannersConfig(**scanners_data)
-        scanner_config = ScannerConfig(**scanner_data)
+        scanners_config = ScannerServiceConfig(**scanners_data)
+        scanner_config = GapScannerConfig(**scanner_data)
 
         return cls(
             database=database_config,
