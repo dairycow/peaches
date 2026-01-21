@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from loguru import logger
 
 from app.api.v1 import router as v1_router
+from app.api.v1.scanner import init_scanner
 from app.config import config
 from app.scheduler import get_scheduler
 from app.services.gateway_service import gateway_service
@@ -34,8 +35,13 @@ async def startup() -> None:
     try:
         await gateway_service.start()
         await strategy_service.start()
+
+        init_scanner()
+        logger.info("Gap scanner initialized")
+
         if config.historical_data.import_enabled:
             await scheduler.start()
+
         _start_health_checks()
         logger.info("Application started successfully")
     except Exception as e:
