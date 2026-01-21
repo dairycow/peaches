@@ -38,7 +38,7 @@ class GapScanner:
         Returns:
             List of gap dictionaries with details
         """
-        gaps = []
+        gaps: list[dict] = []
 
         for _ticker, stock in self.stocks.items():
             stock_gaps = self._find_gaps_in_stock(
@@ -76,7 +76,7 @@ class GapScanner:
         Returns:
             List of gap dictionaries
         """
-        gaps = []
+        gaps: list[dict] = []
 
         if stock.df is None or stock.df.is_empty():
             return gaps
@@ -104,10 +104,7 @@ class GapScanner:
                 else:
                     avg_volume = 0.0
 
-                if avg_volume > 0:
-                    vol_multiple = current["volume"] / avg_volume
-                else:
-                    vol_multiple = 0
+                vol_multiple = current["volume"] / avg_volume if avg_volume > 0 else 0
 
                 if current["volume"] >= min_volume and vol_multiple >= volume_multiplier:
                     gaps.append(

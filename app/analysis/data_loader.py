@@ -92,7 +92,7 @@ def load_bars_batch(
         Dictionary of symbol -> list of BarData objects
     """
     db = get_database_manager()
-    result: dict[str, list["BarData"]] = {}
+    result: dict[str, list[BarData]] = {}
 
     for symbol in symbols:
         result[symbol] = db.load_bars(symbol, exchange, interval, start, end)

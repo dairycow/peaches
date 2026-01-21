@@ -1,9 +1,6 @@
 """Momentum and consolidation pattern detection for stocks."""
 
-import statistics
 from datetime import datetime
-
-import polars as pl
 
 from app.analysis.stock_data import StockData
 
@@ -47,7 +44,7 @@ class MomentumScanner:
         if df.is_empty():
             return []
 
-        bursts = []
+        bursts: list[dict] = []
         consecutive_up = 0
         burst_start_idx = None
 
