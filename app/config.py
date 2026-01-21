@@ -100,6 +100,20 @@ class AnalysisConfig(BaseSettings):
         return self
 
 
+class ScannerConfig(BaseSettings):
+    """Gap scanner configuration."""
+
+    gap_threshold: float = Field(default=3.0, ge=0, le=50, description="Minimum gap percentage")
+    min_price: float = Field(default=1.0, ge=0.01, description="Minimum stock price")
+    min_volume: int = Field(default=100000, gt=0, description="Minimum daily volume")
+    max_results: int = Field(default=50, ge=1, le=50, description="Maximum results to return")
+    opening_range_time: str = Field(
+        default="10:05", description="Opening range sample time (HH:MM)"
+    )
+    timezone: str = Field(default="Australia/Sydney", description="Scanner timezone")
+    enable_scanner: bool = Field(default=False, description="Enable opening range scanner")
+
+
 class Config(BaseSettings):
     """Main application configuration."""
 
@@ -117,6 +131,7 @@ class Config(BaseSettings):
     historical_data: HistoricalDataConfig = Field(default_factory=HistoricalDataConfig)
     cooltrader: CoolTraderConfig = Field(default_factory=CoolTraderConfig)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
+    scanner: ScannerConfig = Field(default_factory=ScannerConfig)
 
     @classmethod
     def from_yaml(cls, config_path: str | Path) -> "Config":
@@ -157,6 +172,7 @@ class Config(BaseSettings):
         historical_data_config = HistoricalDataConfig(**historical_data_data)
         cooltrader_config = CoolTraderConfig(**cooltrader_data)
         analysis_config = AnalysisConfig(**analysis_data)
+        scanner_config = ScannerConfig(**config_dict.pop("scanner", {}))
 
         return cls(
             database=database_config,
@@ -166,6 +182,7 @@ class Config(BaseSettings):
             historical_data=historical_data_config,
             cooltrader=cooltrader_config,
             analysis=analysis_config,
+            scanner=scanner_config,
         )
 
     @staticmethod
