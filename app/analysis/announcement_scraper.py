@@ -20,7 +20,7 @@ def normalize_date(date_str: str) -> str:
         return ""
 
 
-def normalize_time(time_str: str) -> str:
+def normalize_time(time_str: str) -> int:
     """Convert to 24-hour format."""
     try:
         if "pm" in time_str:
@@ -33,9 +33,9 @@ def normalize_time(time_str: str) -> str:
             hour = int(hour)
             if hour == 12:
                 hour = 0
-        return f"{hour:02d}{minute}"
+        return int(f"{hour:02d}{minute}")
     except Exception:
-        return "0000"
+        return 0
 
 
 def extract_page_count(cell) -> int:

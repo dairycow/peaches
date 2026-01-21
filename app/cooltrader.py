@@ -52,9 +52,9 @@ class CoolTraderDownloader:
             logger.info(f"Login response cookies: {dict(response.cookies)}")
 
             self._session_cookie = None
-            for cookie in response.cookies:
-                if "PHPSESSID" in cookie.name:
-                    self._session_cookie = cookie.value
+            for cookie_name, cookie_value in response.cookies.items():
+                if "PHPSESSID" in cookie_name:
+                    self._session_cookie = cookie_value
                     break
 
             logger.info(

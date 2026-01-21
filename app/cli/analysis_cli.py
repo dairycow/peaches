@@ -1,10 +1,12 @@
 """CLI tool for strategy backtesting and analysis."""
 
+import json
 from datetime import datetime
 from pathlib import Path
 
 import typer
 from loguru import logger
+from vnpy.trader.constant import Exchange, Interval
 
 from app.analysis.announcement_scraper import AnnouncementScraper
 from app.analysis.backtest_engine import run_backtest
@@ -18,7 +20,6 @@ from app.analysis.scanners import GapScanner, MomentumScanner
 from app.analysis.stock_data import StockData
 from app.analysis.strategies.donchian_breakout import DonchianBreakoutStrategy
 from app.config import config
-from vnpy.trader.constant import Exchange, Interval
 
 app = typer.Typer(
     name="peaches-analysis",
@@ -299,7 +300,7 @@ def get_announcements(
             json.dump(result, f, indent=2)
         typer.echo(f"Announcements saved to: {output}")
     else:
-        typer.echo_json(result)
+        typer.echo(json.dumps(result))
 
 
 @scanner_app.command("momentum")
@@ -358,7 +359,7 @@ def scan_momentum(
             json.dump(result, f, indent=2)
         typer.echo(f"Results saved to: {output}")
     else:
-        typer.echo_json(result)
+        typer.echo(json.dumps(result))
 
 
 @scanner_app.command("consolidation")
@@ -421,7 +422,7 @@ def scan_consolidation(
             json.dump(result, f, indent=2)
         typer.echo(f"Results saved to: {output}")
     else:
-        typer.echo_json(result)
+        typer.echo(json.dumps(result))
 
 
 @scanner_app.command("gaps")
@@ -483,7 +484,7 @@ def scan_gaps(
             json.dump(result, f, indent=2)
         typer.echo(f"Results saved to: {output}")
     else:
-        typer.echo_json(result)
+        typer.echo(json.dumps(result))
 
 
 def cli() -> None:

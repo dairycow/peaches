@@ -3,7 +3,6 @@
 from datetime import datetime
 
 import polars as pl
-
 from vnpy.trader.object import BarData
 
 
