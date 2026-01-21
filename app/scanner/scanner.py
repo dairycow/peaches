@@ -5,19 +5,18 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from loguru import logger
-from vnpy.trader.constant import Exchange
 
 from app.database import get_database_manager
-from app.scanner.gap_detector import GapDetector
 from app.scanner.filters import PriceVolumeFilter
-from app.scanner.opening_range import OpeningRangeTracker
+from app.scanner.gap_detector import GapDetector
 from app.scanner.models import (
     GapCandidate,
+    OpeningRange,
     ScanRequest,
     ScanResponse,
     ScanStatus,
-    OpeningRange,
 )
+from app.scanner.opening_range import OpeningRangeTracker
 
 if TYPE_CHECKING:
     pass
@@ -145,7 +144,7 @@ class GapScanner:
         logger.info(f"Detected {len(candidates)} raw gap candidates")
 
         if request.min_price > 0 or request.min_volume > 0:
-            symbols = list(set(c.symbol for c in candidates))
+            symbols = {c.symbol for c in candidates}
             filtered = await self.price_volume_filter.apply_filters(
                 symbols, request.min_price, request.min_volume
             )

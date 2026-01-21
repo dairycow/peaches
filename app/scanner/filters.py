@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING
 from loguru import logger
 from vnpy.trader.constant import Exchange, Interval
 
-from app.database import get_database_manager
-
 if TYPE_CHECKING:
     pass
 
