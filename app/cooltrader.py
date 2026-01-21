@@ -39,7 +39,7 @@ class CoolTraderDownloader:
                 follow_redirects=True,
             )
 
-            login_url = "https://data.cooltrader.com.au/amember/login"
+            login_url = "https://www.data.cooltrader.com.au/amember/login"
             login_data = {
                 "amember_login": self.username,
                 "amember_pass": self.password,
@@ -50,7 +50,13 @@ class CoolTraderDownloader:
 
             self._authenticated = True
             logger.info(f"Login response cookies: {dict(response.cookies)}")
-            self._session_cookie = response.cookies.get("PHPSESSID")
+
+            self._session_cookie = None
+            for cookie in response.cookies:
+                if "PHPSESSID" in cookie.name:
+                    self._session_cookie = cookie.value
+                    break
+
             logger.info(
                 f"Successfully logged in to CoolTrader. Session cookie: {self._session_cookie}"
             )
@@ -69,7 +75,7 @@ class CoolTraderDownloader:
             Download URL string
         """
         date_str = date_obj.strftime("%Y%m%d")
-        return f"https://data.cooltrader.com.au/amember/eodfiles/nextday/csv/{date_str}.csv"
+        return f"https://www.data.cooltrader.com.au/amember/eodfiles/nextday/csv/{date_str}.csv"
 
     @retry(
         stop=stop_after_attempt(3),
