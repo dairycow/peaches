@@ -59,3 +59,25 @@ analysis:
   commission-rate: 0.001
   slippage: 0.02
   fixed-commission: 6.6
+
+# Scanner Service Configuration
+scanners:
+  enabled: true
+  asx:
+    url: "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
+    scan-schedule: "30 10 * * 1-5"  # 10:00:30 AM AEST weekdays
+    timeout: 10
+    exclude-tickers:
+      - "TEST"
+      - "DEMO"
+    min-ticker-length: 3
+    max-ticker-length: 6
+  notifications:
+    discord:
+      enabled: true
+      webhook-url: "${DISCORD_WEBHOOK_URL}"
+      username: "peaches-bot"
+  triggers:
+    enabled: true
+    strategies:
+      - "asx_momentum"  # Placeholder for named strategies
