@@ -51,3 +51,11 @@ cooltrader:
   base-url: "https://data.cooltrader.com.au"
   download-schedule: "0 10 * * *"
   import-schedule: "5 10 * * *"
+
+# Backtesting Analysis Configuration
+analysis:
+  output-dir: "/app/data/analysis"
+  default-capital: 1000000
+  commission-rate: 0.001
+  slippage: 0.02
+  fixed-commission: 6.6
