@@ -1,11 +1,15 @@
 """FastAPI endpoints for historical data management."""
 
+from datetime import datetime
 from typing import cast
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from loguru import logger
 from pydantic import BaseModel
+from zoneinfo import ZoneInfo
 
 from app.config import config
+from app.cooltrader import create_downloader
 from app.database import get_database_manager
 from app.scheduler import get_scheduler
 
@@ -206,4 +210,58 @@ async def get_database_overview_endpoint() -> DatabaseOverviewResponse:
     return DatabaseOverviewResponse(
         total_symbols=cast(int, overview["total_symbols"]),
         symbols=cast(list[dict[str, str | int | None]], overview["symbols"]),
+    )
+
+
+class DownloadDateRequest(BaseModel):
+    """Request model for manual date download."""
+
+    date: str
+
+
+@router.post("/download/date", response_model=JobTriggerResponse)
+async def download_specific_date(
+    request: DownloadDateRequest, background_tasks: BackgroundTasks
+) -> JobTriggerResponse:
+    """Manually download CSV for specific date.
+
+    Args:
+        request: Date in YYYY-MM-DD format
+        background_tasks: FastAPI background tasks
+
+    Returns:
+        Download task status
+
+    Raises:
+        HTTPException: If date format is invalid or download fails
+    """
+    try:
+        parsed_date = datetime.strptime(request.date, "%Y-%m-%d")
+        target_date = parsed_date.date()
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid date format: {e}",
+        ) from None
+
+    if not config.historical_data.import_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Import is disabled in configuration",
+        )
+
+    async def download_task() -> None:
+        try:
+            downloader = create_downloader()
+            filepath = await downloader.download_csv(target_date)
+            await downloader.close()
+            logger.info(f"Manual download completed: {filepath}")
+        except Exception as e:
+            logger.error(f"Manual download failed: {e}")
+
+    background_tasks.add_task(download_task)
+
+    return JobTriggerResponse(
+        message=f"Download job started for {request.date} in background",
+        job_id=f"cooltrader_download_{request.date}",
     )

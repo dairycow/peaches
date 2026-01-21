@@ -1,7 +1,8 @@
 """CoolTrader downloader for ASX historical data."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from httpx import AsyncClient
 from loguru import logger
@@ -115,7 +116,8 @@ class CoolTraderDownloader:
         Returns:
             Path to downloaded file
         """
-        yesterday = date.today() - timedelta(days=1)
+        sydney_now = datetime.now(ZoneInfo("Australia/Sydney"))
+        yesterday = sydney_now.date() - timedelta(days=1)
         return await self.download_csv(yesterday)
 
     async def close(self) -> None:
