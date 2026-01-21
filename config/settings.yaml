@@ -82,13 +82,12 @@ scanners:
     strategies:
       - "asx_momentum"  # Placeholder for named strategies
 
-# Scanner Configuration
+# Gap Scanner Configuration
 scanner:
-  enabled: true
-  gap-threshold-pct: 10.0
-  gap-volume-multiplier: 2.0
-  gap-min-volume: 50000
-  momentum-min-days: 3
-  consolidation-max-range-pct: 10.0
-  consolidation-min-days: 5
-  announcement-timeout: 30
+  gap-threshold: 3.0
+  min-price: 1.0
+  min-volume: 100000
+  max-results: 50
+  opening-range-time: "10:05"
+  timezone: "Australia/Sydney"
+  enable-scanner: false
