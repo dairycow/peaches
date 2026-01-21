@@ -10,6 +10,9 @@
         "external_directory": {
             "/Users/hf*": "allow",
             "/home/hf/peaches-*": "allow"
+        },
+        "read": {
+            "*.env": "allow"
         }
     }
 }
