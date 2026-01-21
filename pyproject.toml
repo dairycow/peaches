@@ -37,6 +37,7 @@ dependencies = [
     "pyarrow>=23.0.0",
     "beautifulsoup4>=4.14.3",
     "lxml>=6.0.2",
+    "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]
@@ -138,6 +139,10 @@ module = [
     "ruamel.yaml.*",
     "polars",
     "polars.*",
+    "bs4",
+    "bs4.*",
+    "requests",
+    "requests.*",
 ]
 ignore_missing_imports = true
 ignore_errors = true

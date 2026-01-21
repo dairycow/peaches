@@ -143,13 +143,26 @@ class TriggerConfig(BaseSettings):
     strategies: list[str] = Field(default_factory=list, description="Strategies to trigger")
 
 
-class ScannerConfig(BaseSettings):
+class ScannersConfig(BaseSettings):
     """Scanner service configuration."""
 
     enabled: bool = Field(default=True, description="Enable scanner service")
     asx: ASXScannerConfig = Field(default_factory=ASXScannerConfig)
     notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
     triggers: TriggerConfig = Field(default_factory=TriggerConfig)
+
+
+class ScannerConfig(BaseSettings):
+    """Scanner configuration."""
+
+    enabled: bool = Field(default=True, description="Enable scanners")
+    gap_threshold_pct: float = Field(default=10.0, description="Minimum gap percentage")
+    gap_volume_multiplier: float = Field(default=2.0, description="Volume multiple threshold")
+    gap_min_volume: int = Field(default=50000, description="Minimum daily volume")
+    momentum_min_days: int = Field(default=3, description="Min consecutive up days")
+    consolidation_max_range_pct: float = Field(default=10.0, description="Max price range %")
+    consolidation_min_days: int = Field(default=5, description="Min consolidation duration")
+    announcement_timeout: int = Field(default=30, description="Request timeout seconds")
 
 
 class Config(BaseSettings):
@@ -167,7 +180,8 @@ class Config(BaseSettings):
     historical_data: HistoricalDataConfig = Field(default_factory=HistoricalDataConfig)
     cooltrader: CoolTraderConfig = Field(default_factory=CoolTraderConfig)
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
-    scanners: ScannerConfig = Field(default_factory=ScannerConfig)
+    scanners: ScannersConfig = Field(default_factory=ScannersConfig)
+    scanner: ScannerConfig = Field(default_factory=ScannerConfig)
 
     @model_validator(mode="after")
     def validate_credentials(self) -> "Config":
@@ -207,6 +221,7 @@ class Config(BaseSettings):
         cooltrader_data = config_dict.pop("cooltrader", {})
         analysis_data = config_dict.pop("analysis", {})
         scanners_data = config_dict.pop("scanners", {})
+        scanner_data = config_dict.pop("scanner", {})
 
         database_config = DatabaseConfig(**database_data)
         logging_config = LoggingConfig(**logging_data)
@@ -215,7 +230,8 @@ class Config(BaseSettings):
         historical_data_config = HistoricalDataConfig(**historical_data_data)
         cooltrader_config = CoolTraderConfig(**cooltrader_data)
         analysis_config = AnalysisConfig(**analysis_data)
-        scanners_config = ScannerConfig(**scanners_data)
+        scanners_config = ScannersConfig(**scanners_data)
+        scanner_config = ScannerConfig(**scanner_data)
 
         return cls(
             database=database_config,
@@ -226,6 +242,7 @@ class Config(BaseSettings):
             cooltrader=cooltrader_config,
             analysis=analysis_config,
             scanners=scanners_config,
+            scanner=scanner_config,
         )
 
     @staticmethod
