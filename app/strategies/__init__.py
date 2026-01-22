@@ -4,6 +4,8 @@ import importlib
 
 from app.strategies.announcement_gap_strategy import (
     AnnouncementGapBreakoutStrategy,
+    check_announcement_today,
+    register_announcement,
 )
 from app.strategies.announcement_gap_strategy import (
     AnnouncementGapBreakoutStrategy as AnnouncementGapStrategy,
@@ -23,6 +25,8 @@ __all__ = [
     "STRATEGY_NAME",
     "VT_SYMBOL",
     "get_strategy",
+    "register_announcement",
+    "check_announcement_today",
 ]
 
 
