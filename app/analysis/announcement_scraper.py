@@ -72,6 +72,7 @@ def scrape_announcements_for_year(ticker: str, year: int, timeout: int = 30) -> 
 
     Returns:
         List of announcement dictionaries
+
     """
     url = f"{ASX_BASE_URL}/asx/v2/statistics/announcements.do?by=asxCode&asxCode={ticker}&timeframe=Y&year={year}"
 
@@ -105,7 +106,7 @@ def scrape_announcements_for_year(ticker: str, year: int, timeout: int = 30) -> 
 def filter_announcements_by_date_range(
     announcements: list[dict], start_date: datetime, end_date: datetime
 ) -> list[dict]:
-    """Filter announcements to only those within the date range.
+    """Filter announcements to only those within date range.
 
     Args:
         announcements: List of announcements
@@ -114,6 +115,7 @@ def filter_announcements_by_date_range(
 
     Returns:
         Filtered list of announcements
+
     """
     start_date_str = start_date.strftime("%Y%m%d")
     end_date_str = end_date.strftime("%Y%m%d")
@@ -129,6 +131,7 @@ class AnnouncementScraper:
 
         Args:
             timeout: Request timeout in seconds
+
         """
         self.timeout = timeout
 
@@ -144,6 +147,7 @@ class AnnouncementScraper:
 
         Returns:
             List of announcement dictionaries with date, time, headline, price_sensitive, pages
+
         """
         ticker = ticker.upper()
         results = []
@@ -177,6 +181,7 @@ class AnnouncementScraper:
 
         Returns:
             Tuple of (start_date, end_date)
+
         """
         if reference_date is None:
             reference_date = datetime.now()

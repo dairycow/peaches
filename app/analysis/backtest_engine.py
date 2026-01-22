@@ -33,6 +33,7 @@ class BacktestEngineWrapper:
             commission_rate: Commission rate percentage
             fixed_commission: Fixed commission per trade ($6.60)
             slippage: Slippage percentage (2%)
+
         """
         self.capital = capital
         self.commission_rate = commission_rate
@@ -58,6 +59,7 @@ class BacktestEngineWrapper:
 
         Returns:
             BacktestResult object with results
+
         """
         engine = BacktestingEngine()
 
@@ -120,6 +122,7 @@ class BacktestEngineWrapper:
 
         Returns:
             List of equity point dicts
+
         """
         equity_curve: list[dict[str, float | str]] = []
 
@@ -171,6 +174,7 @@ class BacktestEngineWrapper:
 
         Returns:
             List of trade dicts with entry/exit paired data
+
         """
         buy_trades: list[dict[str, float | str]] = []
         sell_trades: list[dict[str, float | str]] = []
