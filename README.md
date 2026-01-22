@@ -80,11 +80,27 @@ docker compose restart ib-gateway
 
 ## API Endpoints
 
-**Health**: `GET /api/v1/health` (also `/health/ready`, `/health/live`)
+**Health**: `GET /api/v1/health`, `GET /api/v1/health/gateway`, `GET /api/v1/health/ready`, `GET /api/v1/health/live`
 
-**Data Import**: `POST /api/v1/import/import/trigger`, `GET /api/v1/import/database/stats`, `POST /api/v1/import/schedule/start`
+**Data Import**:
+- `POST /api/v1/import/download/trigger` - Trigger CoolTrader CSV download
+- `POST /api/v1/import/download/date` - Download specific date
+- `POST /api/v1/import/import/trigger` - Trigger CSV import to database
+- `GET /api/v1/import/database/stats` - Database statistics
+- `GET /api/v1/import/database/overview` - Symbol data overview
+- `POST /api/v1/import/schedule/start` - Start scheduled imports
+- `POST /api/v1/import/schedule/stop` - Stop scheduled imports
+- `GET /api/v1/import/schedule/status` - Scheduler status
 
-**Docs**: http://localhost:8080/docs
+**Scanners**:
+- `POST /api/v1/scanners/trigger` - Manual announcement scan
+- `GET /api/v1/scanners/status` - Scanner status
+
+**Announcement Gap Strategy**:
+- `POST /api/v1/announcement-gap/scan` - Scan for gap breakout candidates
+- `POST /api/v1/announcement-gap/sample-opening-ranges` - Scan with opening range sampling
+
+**Interactive Docs**: http://localhost:8080/docs
 
 ## Deployment
 
