@@ -3,7 +3,6 @@
 from pathlib import Path
 from typing import Any, Literal
 
-from loguru import logger
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from ruamel.yaml import YAML
@@ -86,17 +85,16 @@ class CoolTraderConfig(BaseSettings):
 
     @field_validator("username", "password", mode="before")
     @classmethod
-    def check_credentials(cls, info) -> "CoolTraderConfig":
+    def check_credentials(cls, v, info) -> str:
         from os import environ
 
-        username = info.data.get("username") or environ.get("COOLTRADER_USERNAME", "")
-        password = info.data.get("password") or environ.get("COOLTRADER_PASSWORD", "")
-        if not username or not password:
+        if v:
+            return v
+        key = f"COOLTRADER_{info.field_name.upper()}"
+        value = environ.get(key, "")
+        if not value:
             raise ValueError("COOLTRADER_USERNAME and COOLTRADER_PASSWORD must be set")
-        logger.debug(
-            f"Credentials validated: username={'*' * (len(username) - 2) if username else 'N/A'}"
-        )
-        return info | cls.model_copy(update={"username": username, "password": password})
+        return value
 
 
 class AnalysisConfig(BaseSettings):
