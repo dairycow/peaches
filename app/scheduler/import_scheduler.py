@@ -188,14 +188,12 @@ def get_scheduler() -> ImportScheduler:
     return scheduler
 
 
-if TYPE_CHECKING:
+async def reset_scheduler() -> None:
+    """Reset scheduler singleton for test isolation.
 
-    async def reset_scheduler() -> None:
-        """Reset scheduler singleton for test isolation.
-
-        Stops scheduler if running and sets to None.
-        """
-        global scheduler
-        if scheduler is not None and scheduler.is_running():
-            await scheduler.stop()
-        scheduler = None
+    Stops scheduler if running and sets to None.
+    """
+    global scheduler
+    if scheduler is not None and scheduler.is_running():
+        await scheduler.stop()
+    scheduler = None
