@@ -50,45 +50,13 @@ packages = ["app"]
 [project.scripts]
 peaches-analysis = "app.cli.analysis_cli:cli"
 
-[tool.black]
-line-length = 100
-target-version = ['py313']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
-
 [tool.ruff]
 line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
-select = [
-    "E",
-    "F",
-    "W",
-    "I",
-    "N",
-    "UP",
-    "B",
-    "C4",
-    "ARG",
-    "SIM",
-]
-ignore = [
-    "E501",
-    "ARG001",
-]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "ARG", "SIM"]
+ignore = ["E501", "ARG001"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
@@ -100,40 +68,27 @@ warn_unused_configs = false
 disallow_untyped_defs = false
 check_untyped_defs = false
 no_implicit_optional = false
+ignore_errors = false
+disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
 module = [
     "vnpy.*",
-    "vnpy_ib",
-    "vnpy_ib.*",
-    "vnpy_ctastrategy",
-    "vnpy_ctastrategy.*",
+    "ibapi.*",
     "apscheduler.*",
-    "fastapi",
     "fastapi.*",
-    "pydantic",
     "pydantic.*",
-    "pydantic_settings",
     "pydantic_settings.*",
-    "loguru",
     "loguru.*",
-    "uvicorn",
     "uvicorn.*",
-    "tenacity",
     "tenacity.*",
-    "httpx",
     "httpx.*",
-    "ruamel.yaml",
     "ruamel.yaml.*",
-    "polars",
     "polars.*",
-    "bs4",
     "bs4.*",
-    "requests",
     "requests.*",
 ]
 ignore_missing_imports = true
-ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -151,10 +106,7 @@ addopts = [
 
 [tool.coverage.run]
 source = ["app"]
-omit = [
-    "*/tests/*",
-    "*/test_*.py",
-]
+omit = ["*/tests/*", "*/test_*.py"]
 
 [tool.coverage.report]
 exclude_lines = [

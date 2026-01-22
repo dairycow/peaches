@@ -148,11 +148,11 @@ async def cleanup() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan manager.
 
     Args:
-        app: FastAPI instance
+        _app: FastAPI instance
 
     Yields:
         None

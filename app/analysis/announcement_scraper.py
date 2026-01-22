@@ -24,13 +24,13 @@ def normalize_time(time_str: str) -> int:
     """Convert to 24-hour format."""
     try:
         if "pm" in time_str:
-            hour, minute = time_str.replace(" pm", "").split(":")
-            hour = int(hour)
+            hour_str, minute = time_str.replace(" pm", "").split(":")
+            hour = int(hour_str)
             if hour != 12:
                 hour += 12
         else:
-            hour, minute = time_str.replace(" am", "").split(":")
-            hour = int(hour)
+            hour_str, minute = time_str.replace(" am", "").split(":")
+            hour = int(hour_str)
             if hour == 12:
                 hour = 0
         return int(f"{hour:02d}{minute}")

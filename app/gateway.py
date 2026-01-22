@@ -129,7 +129,7 @@ class IBGatewayConnection:
         except Exception as e:
             logger.error(f"Error during disconnect: {e}")
 
-    def subscribe(self, req: SubscribeRequest) -> None:
+    async def subscribe(self, req: SubscribeRequest) -> None:
         """Subscribe to market data.
 
         Args:
@@ -138,9 +138,10 @@ class IBGatewayConnection:
         if not self.gateway or not self.connected:
             raise ConnectionError("Not connected to IB Gateway")
 
-        self.gateway.subscribe(req)
+        gateway = self.gateway
+        await asyncio.get_event_loop().run_in_executor(None, lambda: gateway.subscribe(req))
 
-    def send_order(self, req: OrderRequest) -> str:
+    async def send_order(self, req: OrderRequest) -> str:
         """Send order to IB Gateway.
 
         Args:
@@ -152,9 +153,10 @@ class IBGatewayConnection:
         if not self.gateway or not self.connected:
             raise ConnectionError("Not connected to IB Gateway")
 
-        return self.gateway.send_order(req)
+        gateway = self.gateway
+        return await asyncio.get_event_loop().run_in_executor(None, lambda: gateway.send_order(req))
 
-    def cancel_order(self, req: CancelRequest) -> None:
+    async def cancel_order(self, req: CancelRequest) -> None:
         """Cancel order.
 
         Args:
@@ -163,7 +165,8 @@ class IBGatewayConnection:
         if not self.gateway or not self.connected:
             raise ConnectionError("Not connected to IB Gateway")
 
-        self.gateway.cancel_order(req)
+        gateway = self.gateway
+        await asyncio.get_event_loop().run_in_executor(None, lambda: gateway.cancel_order(req))
 
     def get_account(self) -> list[AccountData]:
         """Get account data.

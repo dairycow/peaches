@@ -312,7 +312,7 @@ def scan_momentum(
     output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
 ) -> None:
     """Scan for momentum bursts."""
-    if not config.scanner.enabled:
+    if not config.scanners.enabled:
         typer.echo("Scanners are disabled in configuration")
         raise typer.Exit(code=1)
 
