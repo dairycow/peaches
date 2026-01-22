@@ -171,6 +171,19 @@ class GapScannerConfig(BaseSettings):
     enable_scanner: bool = Field(default=False, description="Enable opening range scanner")
 
 
+class AnnouncementGapStrategyConfig(BaseSettings):
+    """Announcement gap strategy configuration."""
+
+    min_price: float = Field(default=0.20, ge=0.01, description="Minimum stock price")
+    min_gap_pct: float = Field(default=0.0, ge=0, description="Minimum gap percentage")
+    lookback_months: int = Field(default=6, ge=1, le=24, description="Lookback period for high")
+    opening_range_minutes: int = Field(default=5, ge=1, le=30, description="Opening range duration")
+    position_size: int = Field(default=100, gt=0, description="Position size")
+    max_positions: int = Field(default=10, gt=0, description="Maximum concurrent positions")
+    exit_days: int = Field(default=3, ge=1, le=10, description="Exit after N days")
+    enabled: bool = Field(default=False, description="Enable announcement gap strategy")
+
+
 class Config(BaseSettings):
     """Main application configuration."""
 
@@ -188,6 +201,9 @@ class Config(BaseSettings):
     analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     scanners: ScannerServiceConfig = Field(default_factory=ScannerServiceConfig)
     scanner: GapScannerConfig = Field(default_factory=GapScannerConfig)
+    announcement_gap_strategy: AnnouncementGapStrategyConfig = Field(
+        default_factory=AnnouncementGapStrategyConfig
+    )
 
     @classmethod
     def from_yaml(cls, config_path: str | Path) -> "Config":
@@ -222,6 +238,7 @@ class Config(BaseSettings):
         analysis_data = config_dict.pop("analysis", {})
         scanners_data = config_dict.pop("scanners", {})
         scanner_data = config_dict.pop("scanner", {})
+        announcement_gap_strategy_data = config_dict.pop("announcement_gap_strategy", {})
 
         database_config = DatabaseConfig(**database_data)
         logging_config = LoggingConfig(**logging_data)
@@ -232,6 +249,9 @@ class Config(BaseSettings):
         analysis_config = AnalysisConfig(**analysis_data)
         scanners_config = ScannerServiceConfig(**scanners_data)
         scanner_config = GapScannerConfig(**scanner_data)
+        announcement_gap_strategy_config = AnnouncementGapStrategyConfig(
+            **announcement_gap_strategy_data
+        )
 
         return cls(
             database=database_config,
@@ -243,6 +263,7 @@ class Config(BaseSettings):
             analysis=analysis_config,
             scanners=scanners_config,
             scanner=scanner_config,
+            announcement_gap_strategy=announcement_gap_strategy_config,
         )
 
     @staticmethod

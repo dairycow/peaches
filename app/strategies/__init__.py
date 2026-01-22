@@ -2,6 +2,12 @@
 
 import importlib
 
+from app.strategies.announcement_gap_strategy import (
+    AnnouncementGapBreakoutStrategy,
+)
+from app.strategies.announcement_gap_strategy import (
+    AnnouncementGapBreakoutStrategy as AnnouncementGapStrategy,
+)
 from app.strategies.example_strategy import (
     DEFAULT_PARAMETERS,
     STRATEGY_NAME,
@@ -11,6 +17,8 @@ from app.strategies.example_strategy import (
 
 __all__ = [
     "ASXMomentumStrategy",
+    "AnnouncementGapStrategy",
+    "AnnouncementGapBreakoutStrategy",
     "DEFAULT_PARAMETERS",
     "STRATEGY_NAME",
     "VT_SYMBOL",
