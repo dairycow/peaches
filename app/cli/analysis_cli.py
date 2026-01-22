@@ -1,6 +1,5 @@
 """CLI tool for strategy backtesting and analysis."""
 
-import json
 from datetime import datetime
 from pathlib import Path
 
@@ -281,7 +280,7 @@ def get_announcements(
     output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
 ) -> None:
     """Get ASX announcements for a ticker."""
-    scraper = AnnouncementScraper(timeout=config.scanner.announcement_timeout)
+    scraper = AnnouncementScraper(timeout=30)
     start_date, end_date = scraper.parse_date_range(period)
     announcements = scraper.get_announcements(ticker, start_date, end_date)
 
@@ -300,7 +299,7 @@ def get_announcements(
             json.dump(result, f, indent=2)
         typer.echo(f"Announcements saved to: {output}")
     else:
-        typer.echo(json.dumps(result))
+        typer.echo(result)
 
 
 @scanner_app.command("momentum")
@@ -308,9 +307,7 @@ def scan_momentum(
     symbol: str | None = typer.Option(None, help="Specific symbol (or scan all)"),
     start_date: str = typer.Option(..., help="Start date (YYYY-MM-DD)"),
     end_date: str = typer.Option(..., help="End date (YYYY-MM-DD)"),
-    min_days: int = typer.Option(
-        config.scanner.momentum_min_days, help="Minimum consecutive up days"
-    ),
+    min_days: int = typer.Option(3, help="Minimum consecutive up days"),
     limit: int = typer.Option(50, help="Max results to return"),
     output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
 ) -> None:
@@ -359,7 +356,7 @@ def scan_momentum(
             json.dump(result, f, indent=2)
         typer.echo(f"Results saved to: {output}")
     else:
-        typer.echo(json.dumps(result))
+        typer.echo(result)
 
 
 @scanner_app.command("consolidation")
@@ -367,19 +364,12 @@ def scan_consolidation(
     symbol: str | None = typer.Option(None, help="Specific symbol (or scan all)"),
     start_date: str = typer.Option(..., help="Start date (YYYY-MM-DD)"),
     end_date: str = typer.Option(..., help="End date (YYYY-MM-DD)"),
-    max_range_pct: float = typer.Option(
-        config.scanner.consolidation_max_range_pct, help="Max price range %"
-    ),
-    min_days: int = typer.Option(
-        config.scanner.consolidation_min_days, help="Min consolidation duration"
-    ),
+    max_range_pct: float = typer.Option(10.0, help="Max price range %"),
+    min_days: int = typer.Option(5, help="Min consolidation duration"),
     limit: int = typer.Option(50, help="Max results to return"),
     output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
 ) -> None:
     """Scan for consolidation patterns."""
-    if not config.scanner.enabled:
-        typer.echo("Scanners are disabled in configuration")
-        raise typer.Exit(code=1)
 
     try:
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -422,7 +412,7 @@ def scan_consolidation(
             json.dump(result, f, indent=2)
         typer.echo(f"Results saved to: {output}")
     else:
-        typer.echo(json.dumps(result))
+        typer.echo(result)
 
 
 @scanner_app.command("gaps")
@@ -430,20 +420,13 @@ def scan_gaps(
     symbol: str | None = typer.Option(None, help="Specific symbol (or scan all)"),
     start_date: str = typer.Option(..., help="Start date (YYYY-MM-DD)"),
     end_date: str = typer.Option(..., help="End date (YYYY-MM-DD)"),
-    gap_threshold: float = typer.Option(
-        config.scanner.gap_threshold_pct, help="Minimum gap percentage"
-    ),
-    volume_multiplier: float = typer.Option(
-        config.scanner.gap_volume_multiplier, help="Volume multiple threshold"
-    ),
-    min_volume: int = typer.Option(config.scanner.gap_min_volume, help="Minimum daily volume"),
+    gap_threshold: float = typer.Option(10.0, help="Minimum gap percentage"),
+    volume_multiplier: float = typer.Option(2.0, help="Volume multiple threshold"),
+    min_volume: int = typer.Option(50000, help="Minimum daily volume"),
     limit: int = typer.Option(50, help="Max results to return"),
     output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
 ) -> None:
     """Scan for significant price gaps."""
-    if not config.scanner.enabled:
-        typer.echo("Scanners are disabled in configuration")
-        raise typer.Exit(code=1)
 
     try:
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -484,7 +467,7 @@ def scan_gaps(
             json.dump(result, f, indent=2)
         typer.echo(f"Results saved to: {output}")
     else:
-        typer.echo(json.dumps(result))
+        typer.echo(result)
 
 
 def cli() -> None:
