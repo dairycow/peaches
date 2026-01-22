@@ -1,5 +1,6 @@
 """Announcement gap scanner for multi-condition filtering."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
@@ -13,6 +14,20 @@ from app.scanner.gap_detector import GapDetector
 from app.scanner.opening_range import OpeningRangeTracker
 
 if TYPE_CHECKING:
+    pass
+
+__all__ = ["AnnouncementGapScanner", "AnnouncementGapCandidate"]
+
+
+register_announcement: Callable[[str, datetime], None] | None = None
+
+try:
+    from app.strategies.announcement_gap_strategy import (
+        register_announcement as _ra,
+    )
+
+    register_announcement = _ra
+except ImportError:
     pass
 
 
@@ -83,6 +98,8 @@ class AnnouncementGapScanner:
 
                 if candidate:
                     candidates.append(candidate)
+                    if register_announcement is not None:
+                        register_announcement(symbol, ann_time)
                     logger.info(
                         f"✓ Candidate found: {symbol} gap={candidate.gap_pct:.2f}% "
                         f"price=${candidate.current_price:.2f} > 6M ${candidate.six_month_high:.2f}"
@@ -157,7 +174,7 @@ class AnnouncementGapScanner:
             current_price=latest_bar.close_price,
             announcement_headline=headline,
             announcement_time=ann_time,
-            exchange=Exchange.ASX,
+            exchange=Exchange.LOCAL,
         )
 
     def _calculate_six_month_high(self, bars: list, lookback_months: int = 6) -> float:

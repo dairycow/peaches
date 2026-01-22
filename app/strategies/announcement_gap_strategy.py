@@ -12,11 +12,46 @@ Strategy logic:
 from datetime import datetime, timedelta
 from typing import Any
 
+from loguru import logger
 from vnpy.trader.constant import Direction, Offset, OrderType
 from vnpy.trader.object import BarData, OrderData, OrderRequest, TickData, TradeData
 from vnpy_ctastrategy import CtaTemplate
 
 STRATEGY_NAME = "announcement_gap_breakout"
+
+ANNOUNCEMENT_TRACKER: dict[str, datetime] = {}
+
+
+def register_announcement(symbol: str, announcement_time: datetime) -> None:
+    """Register a price-sensitive announcement for a symbol.
+
+    Args:
+        symbol: Stock symbol
+        announcement_time: When the announcement was made
+    """
+    ANNOUNCEMENT_TRACKER[symbol] = announcement_time
+    logger.info(f"Registered announcement: {symbol} at {announcement_time}")
+
+
+def check_announcement_today(symbol: str, lookback_hours: int = 24) -> bool:
+    """Check if a symbol has made an announcement recently.
+
+    Args:
+        symbol: Stock symbol
+        lookback_hours: Hours to look back for announcements
+
+    Returns:
+        True if announcement found within lookback period
+    """
+    if symbol not in ANNOUNCEMENT_TRACKER:
+        return False
+
+    announcement_time = ANNOUNCEMENT_TRACKER[symbol]
+    cutoff = datetime.now() - timedelta(hours=lookback_hours)
+
+    return announcement_time >= cutoff
+
+
 DEFAULT_PARAMETERS = {
     "min_price": 0.20,
     "min_gap_pct": 0.0,
@@ -56,6 +91,7 @@ class AnnouncementGapBreakoutStrategy(CtaTemplate):
         "opening_range_low",
         "entry_triggered",
         "six_month_high",
+        "announcement_found",
     ]
 
     def __init__(
@@ -82,9 +118,9 @@ class AnnouncementGapBreakoutStrategy(CtaTemplate):
         self.opening_range_low: float = 0.0
         self.entry_triggered: bool = False
         self.six_month_high: float = 0.0
+        self.announcement_found: bool = False
 
         self.bar_buffer: list[BarData] = []
-        self.announcement_today: bool = False
 
     def on_init(self) -> None:
         """Initialize strategy."""
@@ -212,7 +248,8 @@ class AnnouncementGapBreakoutStrategy(CtaTemplate):
         if bar.close_price < self.min_price:
             return False
 
-        if not self.announcement_today:
+        self.announcement_found = check_announcement_today(bar.symbol, lookback_hours=24)
+        if not self.announcement_found:
             return False
 
         if not self._check_gap(bar):
