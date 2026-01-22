@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from ruamel.yaml import YAML
 
@@ -82,6 +82,19 @@ class CoolTraderConfig(BaseSettings):
     )
     download_schedule: str = Field(default="0 10 * * *", description="Download cron schedule")
     import_schedule: str = Field(default="5 10 * * *", description="Import cron schedule")
+
+    @field_validator("username", "password", mode="before")
+    @classmethod
+    def check_credentials(cls, v, info) -> str:
+        from os import environ
+
+        if v:
+            return v
+        key = f"COOLTRADER_{info.field_name.upper()}"
+        value = environ.get(key, "")
+        if not value:
+            raise ValueError("COOLTRADER_USERNAME and COOLTRADER_PASSWORD must be set")
+        return value
 
 
 class AnalysisConfig(BaseSettings):
