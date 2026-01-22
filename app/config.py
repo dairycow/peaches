@@ -83,7 +83,7 @@ class CoolTraderConfig(BaseSettings):
     download_schedule: str = Field(default="0 10 * * *", description="Download cron schedule")
     import_schedule: str = Field(default="5 10 * * *", description="Import cron schedule")
 
-    @field_validator("username", "password", mode="before")
+    @field_validator("username", "password", mode="before", check_fields=False)
     @classmethod
     def check_credentials(cls, v, info) -> str:
         from os import environ
