@@ -157,14 +157,12 @@ def get_scanner_scheduler() -> ScannerScheduler:
     return scanner_scheduler
 
 
-if TYPE_CHECKING:
+async def reset_scanner_scheduler() -> None:
+    """Reset scanner scheduler singleton for test isolation.
 
-    async def reset_scanner_scheduler() -> None:
-        """Reset scanner scheduler singleton for test isolation.
-
-        Stops scanner scheduler if running and sets to None.
-        """
-        global scanner_scheduler
-        if scanner_scheduler is not None and scanner_scheduler.is_running():
-            await scanner_scheduler.stop()
-        scanner_scheduler = None
+    Stops scanner scheduler if running and sets to None.
+    """
+    global scanner_scheduler
+    if scanner_scheduler is not None and scanner_scheduler.is_running():
+        await scanner_scheduler.stop()
+    scanner_scheduler = None
