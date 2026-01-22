@@ -1,6 +1,7 @@
 """IB Gateway scanner extension."""
 
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Literal
 
 from ibapi.common import TagValue
 from ibapi.scanner import ScannerSubscription
@@ -17,13 +18,13 @@ class IBScanner:
 
     def __init__(self) -> None:
         """Initialize IB scanner."""
-        self._scanner_results: list[ScannerSubscription] = []
-        self._scanner_callbacks = {}
+        self._scanner_results: list[GapCandidate] = []
+        self._scanner_callbacks: dict[int, dict[str, Literal["up", "down"]]] = {}
 
     def request_gap_scan(
         self,
         req_id: int,
-        scan_direction: str,
+        scan_direction: Literal["up", "down"],
         filters: list[TagValue] | None = None,
     ) -> None:
         """Request gap scan from IB.
@@ -100,7 +101,7 @@ class IBScanner:
                 open_price=0.0,
                 volume=0,
                 price=0.0,
-                timestamp=None,
+                timestamp=datetime.min,
                 conid=contract_details.contract.conId,
             )
 

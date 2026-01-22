@@ -43,13 +43,13 @@ async def start_gap_scan(request: ScanRequest) -> ScanResponse:
 
 
 @router.get("/gap/results/{scan_id}")
-async def get_scan_results(scan_id: str) -> list[GapCandidate]:
+async def get_scan_results(_scan_id: str) -> list[GapCandidate]:
     """Get results for a completed scan.
 
     Note: Currently returns last scan results. In production, implement scan ID tracking.
 
     Args:
-        scan_id: Scan ID
+        _scan_id: Scan ID
 
     Returns:
         List of gap candidates
@@ -88,11 +88,11 @@ async def get_gap_candidates(date: datetime) -> list[GapCandidate]:
 
 
 @router.get("/opening-range/{date}")
-async def get_opening_ranges(date: datetime) -> list[OpeningRange]:
+async def get_opening_ranges(_date: datetime) -> list[OpeningRange]:
     """Get opening ranges for a specific date.
 
     Args:
-        date: Date to query
+        _date: Date to query
 
     Returns:
         List of opening ranges

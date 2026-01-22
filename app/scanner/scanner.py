@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from loguru import logger
+from vnpy.trader.constant import Exchange, Interval
 
 from app.database import get_database_manager
 from app.scanner.filters import PriceVolumeFilter
@@ -35,7 +36,12 @@ class GapScanner:
         self.gap_detector = GapDetector(self.db_manager)
         self.price_volume_filter = PriceVolumeFilter(self.db_manager)
         self.or_tracker = OpeningRangeTracker(self.db_manager)
-        self._status = ScanStatus(running=False)
+        self._status = ScanStatus(
+            running=False,
+            last_scan_time=None,
+            last_scan_results=0,
+            active_scans=0,
+        )
         self._scan_lock = asyncio.Lock()
 
     async def start_scan(self, request: ScanRequest) -> ScanResponse:
@@ -112,8 +118,8 @@ class GapScanner:
         for bar_overview in all_bars:
             bars = self.db_manager.load_bars(
                 symbol=bar_overview.symbol,
-                exchange=bar_overview.exchange,
-                interval=bar_overview.interval,
+                exchange=Exchange(bar_overview.exchange),
+                interval=Interval(bar_overview.interval),
             )
 
             if not bars:
@@ -133,7 +139,7 @@ class GapScanner:
                     gap_direction="up" if gap_percent >= 0 else "down",
                     previous_close=prev_close,
                     open_price=gap.price,
-                    volume=bars[-1].volume,
+                    volume=int(bars[-1].volume),
                     price=gap.price,
                     timestamp=gap.sample_time,
                     conid=0,
@@ -144,7 +150,7 @@ class GapScanner:
         logger.info(f"Detected {len(candidates)} raw gap candidates")
 
         if request.min_price > 0 or request.min_volume > 0:
-            symbols = {c.symbol for c in candidates}
+            symbols = [c.symbol for c in candidates]
             filtered = await self.price_volume_filter.apply_filters(
                 symbols, request.min_price, request.min_volume
             )
@@ -212,8 +218,8 @@ class GapScanner:
         for bar_overview in all_bars:
             bars = self.db_manager.load_bars(
                 symbol=bar_overview.symbol,
-                exchange=bar_overview.exchange,
-                interval=bar_overview.interval,
+                exchange=Exchange(bar_overview.exchange),
+                interval=Interval(bar_overview.interval),
             )
 
             if not bars:
@@ -233,7 +239,31 @@ class GapScanner:
                             gap_direction="up" if gap_percent >= 0 else "down",
                             previous_close=prev_close,
                             open_price=curr_open,
-                            volume=bars[i].volume,
+                            volume=int(bars[i].volume),
+                            price=curr_open,
+                            timestamp=bars[i].datetime,
+                            conid=0,
+                        )
+                    )
+
+            if not bars:
+                continue
+
+            for i in range(1, len(bars)):
+                if bars[i].datetime.date() == date.date():
+                    prev_close = bars[i - 1].close_price
+                    curr_open = bars[i].open_price
+
+                    gap_percent = (curr_open - prev_close) / prev_close * 100
+
+                    candidates.append(
+                        GapCandidate(
+                            symbol=bars[i].symbol,
+                            gap_percent=gap_percent,
+                            gap_direction="up" if gap_percent >= 0 else "down",
+                            previous_close=prev_close,
+                            open_price=curr_open,
+                            volume=int(bars[i].volume),
                             price=curr_open,
                             timestamp=bars[i].datetime,
                             conid=0,
