@@ -34,7 +34,7 @@ cd "$WORKTREE_PATH"
 
 # Initialize Python environment with uv (separate venv per worktree)
 uv venv
-uv sync --extra dev
+uv sync --group dev
 
 # Create symlinks for data and logs directories
 ln -s /opt/peaches/data data-prod
