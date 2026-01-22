@@ -191,12 +191,12 @@ class DatabaseManager:
         try:
             logger.info("Rebuilding bar overview table")
 
-            DbBarOverview.bind(self.database.db)
+            DbBarOverview.bind(self.database.db)  # type: ignore[attr-defined]
             DbBarOverview.delete().execute()
 
             logger.info("Deleted existing bar overview records")
 
-            self.database.init_bar_overview()
+            self.database.init_bar_overview()  # type: ignore[attr-defined]
 
             logger.info("Successfully rebuilt bar overview table")
             return True

@@ -70,3 +70,31 @@ def get_symbol_data_range(symbol: str) -> dict[str, str | int] | None:
                 "count": o.count,
             }
     return None
+
+
+def load_bars_batch(
+    symbols: list[str],
+    start: datetime,
+    end: datetime,
+    exchange: Exchange = Exchange.LOCAL,
+    interval: Interval = Interval.DAILY,
+) -> dict[str, list["BarData"]]:
+    """Load OHLCV bar data from database for multiple symbols.
+
+    Args:
+        symbols: List of trading symbols
+        start: Start datetime
+        end: End datetime
+        exchange: Exchange (default: LOCAL for CSV data)
+        interval: Bar interval (default: DAILY)
+
+    Returns:
+        Dictionary of symbol -> list of BarData objects
+    """
+    db = get_database_manager()
+    result: dict[str, list[BarData]] = {}
+
+    for symbol in symbols:
+        result[symbol] = db.load_bars(symbol, exchange, interval, start, end)
+
+    return result

@@ -52,9 +52,9 @@ class CoolTraderDownloader:
             logger.info(f"Login response cookies: {dict(response.cookies)}")
 
             self._session_cookie = None
-            for cookie in response.cookies:
-                if "PHPSESSID" in cookie.name:
-                    self._session_cookie = cookie.value
+            for cookie_name, cookie_value in response.cookies.items():
+                if "PHPSESSID" in cookie_name:
+                    self._session_cookie = cookie_value
                     break
 
             logger.info(
@@ -75,7 +75,7 @@ class CoolTraderDownloader:
             Download URL string
         """
         date_str = date_obj.strftime("%Y%m%d")
-        return f"https://www.data.cooltrader.com.au/amember/eodfiles/nextday/csv/{date_str}.csv"
+        return f"{config.cooltrader.base_url}/amember/eodfiles/nextday/csv/{date_str}.csv"
 
     @retry(
         stop=stop_after_attempt(3),
