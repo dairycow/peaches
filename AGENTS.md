@@ -1,5 +1,9 @@
 # AGENTS.md - Development Guidelines
 
+## Language
+- Use Australian English spelling (e.g., colour, analyse, initialise, organise)
+- No emojis in documentation
+
 ## Development Workflow
 
 ### Git Worktree Development
@@ -10,7 +14,7 @@ Worktrees are used for feature development, keeping main clean.
 ./create-worktree.sh feature/new-feature
 
 # Work in worktree at ~/peaches-feature-new-feature/
-# - Has its own venv (uv venv + uv sync --extra dev)
+# - Has its own venv (uv venv + uv sync --group dev)
 # - data-prod symlink → /opt/peaches/data
 # - logs-prod symlink → /opt/peaches/logs
 
