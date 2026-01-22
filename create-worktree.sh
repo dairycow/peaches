@@ -40,12 +40,16 @@ uv sync --extra dev
 ln -s /opt/peaches/data data-prod
 ln -s /opt/peaches/logs logs-prod
 
+# Copy pyrightconfig.json (already uses relative paths, no updates needed)
+cp "$PROJECT_ROOT/pyrightconfig.json" pyrightconfig.json
+
 # Copy opencode config and update venv path
 mkdir -p .opencode
 cp "$PROJECT_ROOT/.opencode/opencode.json" .opencode/
 sed -i "s|$PROJECT_ROOT/\.venv|$WORKTREE_PATH/.venv|g" .opencode/opencode.json
 
-# Ignore opencode.json changes in worktree
+# Ignore config changes in worktree
+git update-index --assume-unchanged pyrightconfig.json
 git update-index --assume-unchanged .opencode/opencode.json
 
 echo "Worktree ready at: $WORKTREE_PATH"
