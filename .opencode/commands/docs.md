@@ -36,7 +36,7 @@ Search for all markdown files in the project (excluding .venv, node_modules, .gi
      - Parameters and their defaults
      - Usage examples
      - Entry/exit logic
-   - Create `STRATEGIES.md` if missing or incomplete
+    - Create `docs/STRATEGIES.md` if missing or incomplete
 
    **c) Scanners Documentation:**
    - List files in `app/scanners/` and `app/analysis/scanners/`
@@ -44,7 +44,7 @@ Search for all markdown files in the project (excluding .venv, node_modules, .gi
      - What it detects (e.g., price-sensitive announcements, gaps)
      - Parameters and configuration
      - Usage examples
-   - Create `SCANNERS.md` if missing or incomplete
+    - Create `docs/SCANNERS.md` if missing or incomplete
 
    **d) Services Documentation:**
    - List files in `app/services/`
@@ -54,7 +54,7 @@ Search for all markdown files in the project (excluding .venv, node_modules, .gi
      - Notification service
      - Scanner service
      - Import scheduler
-   - Create `SERVICES.md` if missing
+    - Create `docs/SERVICES.md` if missing
 
    **e) CLI Documentation:**
    - Check `app/cli/` for CLI tools
@@ -86,18 +86,18 @@ Search for all markdown files in the project (excluding .venv, node_modules, .gi
    - Add any new patterns discovered
    - Update file locations
 
-   **c) Create/update STRATEGIES.md:**
+    **c) Create/update docs/STRATEGIES.md:**
    - Document all trading strategies
    - Include strategy parameters, logic, examples
    - Reference backtest CLI usage
    - Link to code files
 
-   **d) Create/update SCANNERS.md:**
+    **d) Create/update docs/SCANNERS.md:**
    - Document all market scanners
    - Include parameters and usage
    - Link to code files
 
-   **e) Create/update SERVICES.md:**
+    **e) Create/update docs/SERVICES.md:**
    - Document internal service architecture
    - Explain service interactions
    - Include configuration notes

@@ -193,6 +193,29 @@ uv run pytest -k "test_import"
 4. **Health checks required** - all services must be healthy
 5. **Type hints encouraged** but type checking is relaxed
 6. **Avoid mocks** - prefer real components
+7. **Track AI mistakes** - use `/capture-mistakes` to document and learn from AI-generated mistakes
+
+## AI Mistake Tracking
+
+### docs/MISTAKES.md
+Maintains a chronological log of AI-generated mistakes to prevent recurrence.
+
+### Capture Workflow
+Use `/capture-mistakes` command to automatically:
+- Analyse recent AI-generated changes
+- Identify common Python pattern violations
+- Categorise mistakes by severity (INFO/WARNING/ERROR)
+- Append structured entries to docs/MISTAKES.md
+
+### Mistake Categories
+- **Code patterns**: Async violations, error handling, type hints, style issues
+- **Testing**: Missing tests, improper mocking, test failures
+- **Documentation**: Missing docstrings, outdated comments
+
+### Severity Levels
+- **INFO**: Style violations, minor issues, recommendations
+- **WARNING**: Potential issues, non-critical bugs
+- **ERROR**: Blocking issues, test failures, deployment failures
 
 ## Configuration Files
 
