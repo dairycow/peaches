@@ -10,7 +10,7 @@ from app.scanners.asx.price_sensitive import ASXPriceSensitiveScanner, ScannerCo
 async def test_asx_price_sensitive_scanner_real_url():
     """Test scanner with real ASX URL."""
     config = ScannerConfig(
-        url="https://www.asx.com.au/asx/v2/statistics/prevBusDayAnns.do",
+        url="https://www.asx.com.au/asx/v2/statistics/prevBusDayAnns.do",  # Works on weekends too
         timeout=30,
         exclude_tickers=[],
         min_ticker_length=1,
