@@ -1,7 +1,6 @@
 ---
 description: Update project documentation
-agent: general
-subtask: true
+agent: build
 ---
 
 Search for all markdown files in the project (excluding .venv, node_modules, .git), analyse the codebase structure, identify documentation debt, and automatically update documentation files using a hybrid approach.
