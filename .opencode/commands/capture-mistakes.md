@@ -1,7 +1,6 @@
 ---
 description: Capture AI-generated mistakes for documentation
 agent: build
-subtask: true
 ---
 
 Review recent AI-generated changes and identify mistakes to add to docs/MISTAKES.md.
