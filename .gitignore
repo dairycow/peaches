@@ -35,6 +35,7 @@ env/
 
 # VSCode
 .vscode/
+!.vscode/launch.json
 *.code-workspace
 
 # Jupyter
