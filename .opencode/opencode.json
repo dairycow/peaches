@@ -9,7 +9,8 @@
     "permission": {
         "external_directory": {
             "/Users/hf*": "allow",
-            "/home/hf/peaches-*": "allow"
+            "/home/hf/peaches-*": "allow",
+            "/opt/peaches*": "allow"
         },
         "read": {
             "*.env": "allow"
