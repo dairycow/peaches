@@ -22,7 +22,13 @@ install:  ## Install dependencies with uv
 dev: install  ## Install development dependencies
 	uv sync --all-extras --dev
 
-test:  ## Run tests
+test:  ## Run unit tests only (excludes integration)
+	uv run pytest -m "not integration" --cov=app --cov-report=term --cov-report=html
+
+test-integration:  ## Run integration tests
+	uv run pytest -m integration --cov=app --cov-report=term --cov-report=html
+
+test-all:  ## Run all tests (unit + integration)
 	uv run pytest --cov=app --cov-report=term --cov-report=html
 
 lint:  ## Run linting with ruff
@@ -89,6 +95,6 @@ disable-vnc:  ## Disable VNC for production security
 	docker compose restart ib-gateway
 	@echo "VNC disabled for production security."
 
-all: format check test  ## Format, check, and test
+all: format check test  ## Format, check, and run unit tests
 
 .DEFAULT_GOAL := help
