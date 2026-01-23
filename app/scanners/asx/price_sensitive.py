@@ -8,6 +8,7 @@ from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.models.announcement import Announcement
+from app.scanners.base import ScannerBase, ScanResult
 
 if TYPE_CHECKING:
     pass
@@ -25,7 +26,7 @@ class ScannerConfig:
 
 
 @dataclass
-class ScanResult:
+class ASXScanResult:
     """Result from scanning announcements."""
 
     announcements: list[Announcement]
@@ -33,7 +34,7 @@ class ScanResult:
     error: str | None
 
 
-class ASXPriceSensitiveScanner:
+class ASXPriceSensitiveScanner(ScannerBase):
     """Scanner for ASX price-sensitive announcements."""
 
     def __init__(self, config: ScannerConfig) -> None:
@@ -49,15 +50,30 @@ class ASXPriceSensitiveScanner:
         """Scanner identifier."""
         return "asx_price_sensitive"
 
+    async def execute(self) -> ScanResult:
+        """Execute the scan operation.
+
+        Returns:
+            ScanResult with results or error details
+        """
+        asx_result = await self.fetch_announcements()
+
+        return ScanResult(
+            success=asx_result.success,
+            message=f"Fetched {len(asx_result.announcements)} announcements",
+            data=[a.__dict__ for a in asx_result.announcements],
+            error=asx_result.error,
+        )
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
     )
-    async def fetch_announcements(self) -> ScanResult:
+    async def fetch_announcements(self) -> ASXScanResult:
         """Fetch ASX price-sensitive announcements.
 
         Returns:
-            ScanResult with announcements or error
+            ASXScanResult with announcements or error
         """
         try:
             import httpx
@@ -96,11 +112,11 @@ class ASXPriceSensitiveScanner:
                     )
 
             logger.info(f"Found {len(announcements)} valid announcements")
-            return ScanResult(announcements=announcements, success=True, error=None)
+            return ASXScanResult(announcements=announcements, success=True, error=None)
 
         except Exception as e:
             logger.error(f"Error fetching ASX announcements: {e}")
-            return ScanResult(announcements=[], success=False, error=str(e))
+            return ASXScanResult(announcements=[], success=False, error=str(e))
 
     def _validate_ticker(self, ticker: str) -> bool:
         """Validate ticker format.

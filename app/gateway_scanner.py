@@ -7,7 +7,7 @@ from ibapi.common import TagValue
 from ibapi.scanner import ScannerSubscription
 from loguru import logger
 
-from app.scanner.models import GapCandidate
+from app.scanners.gap.models import GapCandidate
 
 if TYPE_CHECKING:
     pass

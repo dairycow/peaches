@@ -56,7 +56,7 @@ async def scan_announcement_gap(request: AnnouncementGapScanRequest) -> Announce
     global announcement_gap_service
 
     try:
-        from app.scanners.asx_price_sensitive import ScannerConfig
+        from app.scanners.asx import ScannerConfig
 
         scanner_config = ScannerConfig(
             url=config.scanners.asx.url,
@@ -108,7 +108,7 @@ async def sample_opening_ranges(request: AnnouncementGapScanRequest) -> OpeningR
     global announcement_gap_service
 
     try:
-        from app.scanners.asx_price_sensitive import ScannerConfig
+        from app.scanners.asx import ScannerConfig
 
         scanner_config = ScannerConfig(
             url=config.scanners.asx.url,

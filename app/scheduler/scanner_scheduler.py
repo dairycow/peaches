@@ -14,7 +14,9 @@ from loguru import logger
 from app.config import config
 
 
-class ScanResult(TypedDict):
+class JobResult(TypedDict):
+    """Job execution result for tracking scan operations."""
+
     success: bool
     announcements_count: int
     processed_count: int
@@ -35,7 +37,7 @@ class ScannerScheduler:
         self._running = False
         self._lock = asyncio.Lock()
 
-    def add_jobs(self, scan_func: "Callable[[], Awaitable[ScanResult]]") -> None:
+    def add_jobs(self, scan_func: "Callable[[], Awaitable[JobResult]]") -> None:
         """Add scheduled scan job.
 
         Args:
@@ -81,16 +83,16 @@ class ScannerScheduler:
         return self._running
 
 
-async def run_scan() -> ScanResult:
+async def run_scan() -> JobResult:
     """Run announcement scan job.
 
     Returns:
-        Scan result dictionary
+        Job result dictionary
     """
     logger.info("Running ASX announcement scan job")
 
     try:
-        from app.scanners.asx_price_sensitive import ASXPriceSensitiveScanner, ScannerConfig
+        from app.scanners.asx import ASXPriceSensitiveScanner, ScannerConfig
         from app.services.notification_service import get_notification_service
         from app.services.scanner_service import get_scanner_service
         from app.services.strategy_trigger_service import get_strategy_trigger_service
@@ -124,7 +126,7 @@ async def run_scan() -> ScanResult:
 
         result = await scanner_service.scan()
         logger.info(f"Scan job completed: {result}")
-        return ScanResult(
+        return JobResult(
             success=result.get("success", False),
             announcements_count=result.get("announcements_count", 0),
             processed_count=result.get("processed_count", 0),
@@ -133,7 +135,7 @@ async def run_scan() -> ScanResult:
 
     except Exception as e:
         logger.error(f"Scan job failed: {e}")
-        return ScanResult(
+        return JobResult(
             success=False,
             announcements_count=0,
             processed_count=0,

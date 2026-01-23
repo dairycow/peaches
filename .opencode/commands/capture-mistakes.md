@@ -1,6 +1,6 @@
 ---
 description: Capture AI-generated mistakes for documentation
-agent: general
+agent: build
 subtask: true
 ---
 
