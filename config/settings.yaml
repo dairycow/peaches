@@ -46,8 +46,8 @@ historical-data:
 
 # CoolTrader Configuration
 cooltrader:
-  username: "${COOLTRADER_USERNAME}"
-  password: "${COOLTRADER_PASSWORD}"
+  username: ""
+  password: ""
   base-url: "https://data.cooltrader.com.au"
   download-schedule: "0 10 * * *"
   import-schedule: "5 10 * * *"
@@ -75,7 +75,7 @@ scanners:
   notifications:
     discord:
       enabled: true
-      webhook-url: "${DISCORD_WEBHOOK_URL}"
+      webhook-url: ""
       username: "peaches-bot"
   triggers:
     enabled: true
