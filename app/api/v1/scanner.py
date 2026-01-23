@@ -5,8 +5,14 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException
 
-from app.scanner.models import GapCandidate, OpeningRange, ScanRequest, ScanResponse, ScanStatus
-from app.scanner.scanner import GapScanner
+from app.scanners.gap.models import (
+    GapCandidate,
+    OpeningRange,
+    ScanRequest,
+    ScanResponse,
+    ScanStatus,
+)
+from app.scanners.gap.scanner import GapScanner
 
 if TYPE_CHECKING:
     pass

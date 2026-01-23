@@ -7,7 +7,7 @@ from loguru import logger
 from vnpy.trader.constant import Exchange, Interval
 from vnpy.trader.object import BarData
 
-from app.scanner.models import OpeningRange
+from app.scanners.gap.models import OpeningRange
 
 if TYPE_CHECKING:
     pass

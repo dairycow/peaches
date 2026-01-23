@@ -8,25 +8,26 @@ from loguru import logger
 from vnpy.trader.constant import Exchange, Interval
 
 from app.database import get_database_manager
-from app.scanner.filters import PriceVolumeFilter
-from app.scanner.gap_detector import GapDetector
-from app.scanner.models import (
+from app.scanners.base import ScannerBase, ScanResult
+from app.scanners.gap.filters import PriceVolumeFilter
+from app.scanners.gap.gap_detector import GapDetector
+from app.scanners.gap.models import (
     GapCandidate,
     OpeningRange,
     ScanRequest,
     ScanResponse,
     ScanStatus,
 )
-from app.scanner.opening_range import OpeningRangeTracker
+from app.scanners.gap.opening_range import OpeningRangeTracker
 
 if TYPE_CHECKING:
-    pass
+    from app.database import DatabaseManager
 
 
-class GapScanner:
+class GapScanner(ScannerBase):
     """Main gap scanner orchestrator."""
 
-    def __init__(self, db_manager=None) -> None:
+    def __init__(self, db_manager: "DatabaseManager | None" = None) -> None:
         """Initialize gap scanner.
 
         Args:
@@ -43,6 +44,34 @@ class GapScanner:
             active_scans=0,
         )
         self._scan_lock = asyncio.Lock()
+
+    @property
+    def name(self) -> str:
+        """Scanner identifier."""
+        return "gap_scanner"
+
+    async def execute(self) -> ScanResult:
+        """Execute the scan operation.
+
+        Returns:
+            ScanResult with results or error details
+        """
+        candidates = await self._execute_scan(
+            ScanRequest(
+                gap_threshold=3.0,
+                min_price=1.0,
+                min_volume=100000,
+                max_results=50,
+                scan_direction="both",
+            )
+        )
+
+        return ScanResult(
+            success=True,
+            message=f"Found {len(candidates)} gap candidates",
+            data=[c.__dict__ for c in candidates],
+            error=None,
+        )
 
     async def start_scan(self, request: ScanRequest) -> ScanResponse:
         """Start a gap scan with specified parameters.
@@ -221,30 +250,6 @@ class GapScanner:
                 exchange=Exchange(bar_overview.exchange),
                 interval=Interval(bar_overview.interval),
             )
-
-            if not bars:
-                continue
-
-            for i in range(1, len(bars)):
-                if bars[i].datetime.date() == date.date():
-                    prev_close = bars[i - 1].close_price
-                    curr_open = bars[i].open_price
-
-                    gap_percent = (curr_open - prev_close) / prev_close * 100
-
-                    candidates.append(
-                        GapCandidate(
-                            symbol=bars[i].symbol,
-                            gap_percent=gap_percent,
-                            gap_direction="up" if gap_percent >= 0 else "down",
-                            previous_close=prev_close,
-                            open_price=curr_open,
-                            volume=int(bars[i].volume),
-                            price=curr_open,
-                            timestamp=bars[i].datetime,
-                            conid=0,
-                        )
-                    )
 
             if not bars:
                 continue

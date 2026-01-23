@@ -7,7 +7,7 @@ from app.scheduler.import_scheduler import (
     run_import,
 )
 from app.scheduler.scanner_scheduler import (
-    ScanResult,
+    JobResult,
     get_scanner_scheduler,
     reset_scanner_scheduler,
     run_scan,
@@ -16,7 +16,7 @@ from app.scheduler.scanner_scheduler import (
 __all__ = [
     "DownloadResult",
     "ImportResult",
-    "ScanResult",
+    "JobResult",
     "get_scheduler",
     "get_scanner_scheduler",
     "reset_scheduler",

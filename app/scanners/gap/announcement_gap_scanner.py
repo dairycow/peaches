@@ -9,12 +9,13 @@ from loguru import logger
 from vnpy.trader.constant import Exchange, Interval
 
 from app.database import get_database_manager
-from app.scanner.filters import PriceVolumeFilter
-from app.scanner.gap_detector import GapDetector
-from app.scanner.opening_range import OpeningRangeTracker
+from app.scanners.base import ScannerBase, ScanResult
+from app.scanners.gap.filters import PriceVolumeFilter
+from app.scanners.gap.gap_detector import GapDetector
+from app.scanners.gap.opening_range import OpeningRangeTracker
 
 if TYPE_CHECKING:
-    pass
+    from app.database import DatabaseManager
 
 __all__ = ["AnnouncementGapScanner", "AnnouncementGapCandidate"]
 
@@ -44,7 +45,7 @@ class AnnouncementGapCandidate:
     exchange: Exchange = Exchange.LOCAL
 
 
-class AnnouncementGapScanner:
+class AnnouncementGapScanner(ScannerBase):
     """Scanner for announcement gap breakout candidates.
 
     Filters stocks by:
@@ -54,7 +55,7 @@ class AnnouncementGapScanner:
     4. Price > minimum threshold
     """
 
-    def __init__(self, db_manager=None) -> None:
+    def __init__(self, db_manager: "DatabaseManager | None" = None) -> None:
         """Initialize announcement gap scanner.
 
         Args:
@@ -64,6 +65,31 @@ class AnnouncementGapScanner:
         self.gap_detector = GapDetector(self.db_manager)
         self.price_volume_filter = PriceVolumeFilter(self.db_manager)
         self.or_tracker = OpeningRangeTracker(self.db_manager)
+
+    @property
+    def name(self) -> str:
+        """Scanner identifier."""
+        return "announcement_gap_scanner"
+
+    async def execute(self) -> ScanResult:
+        """Execute the scan operation.
+
+        Returns:
+            ScanResult with results or error details
+        """
+        candidates = await self.scan_candidates(
+            announcement_symbols=[],
+            min_price=0.20,
+            min_gap_pct=0.0,
+            lookback_months=6,
+        )
+
+        return ScanResult(
+            success=True,
+            message=f"Found {len(candidates)} announcement gap candidates",
+            data=[c.__dict__ for c in candidates],
+            error=None,
+        )
 
     async def scan_candidates(
         self,

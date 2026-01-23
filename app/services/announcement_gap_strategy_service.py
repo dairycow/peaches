@@ -4,8 +4,11 @@ from datetime import datetime
 
 from loguru import logger
 
-from app.scanner.announcement_gap_scanner import AnnouncementGapCandidate, AnnouncementGapScanner
-from app.scanners.asx_price_sensitive import ASXPriceSensitiveScanner, ScannerConfig
+from app.scanners.asx import ASXPriceSensitiveScanner, ScannerConfig
+from app.scanners.gap.announcement_gap_scanner import (
+    AnnouncementGapCandidate,
+    AnnouncementGapScanner,
+)
 
 
 class AnnouncementGapStrategyService:
