@@ -39,7 +39,7 @@ class CoolTraderDownloader:
                 follow_redirects=True,
             )
 
-            login_url = "https://www.data.cooltrader.com.au/amember/login"
+            login_url = "https://data.cooltrader.com.au/amember/login"
             login_data = {
                 "amember_login": self.username,
                 "amember_pass": self.password,
@@ -52,10 +52,13 @@ class CoolTraderDownloader:
             logger.info(f"Login response cookies: {dict(response.cookies)}")
 
             self._session_cookie = None
-            for cookie_name, cookie_value in response.cookies.items():
-                if "PHPSESSID" in cookie_name:
-                    self._session_cookie = cookie_value
-                    break
+            try:
+                for cookie_name, cookie_value in response.cookies.items():
+                    if "PHPSESSID" in cookie_name:
+                        self._session_cookie = cookie_value
+                        break
+            except Exception as e:
+                logger.warning(f"Failed to extract session cookie: {e}")
 
             logger.info(
                 f"Successfully logged in to CoolTrader. Session cookie: {self._session_cookie}"
