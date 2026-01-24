@@ -1,11 +1,7 @@
 """Configuration management using Pydantic Settings v2."""
 
-from pathlib import Path
-from typing import Any, Literal
-
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from ruamel.yaml import YAML
 
 
 class DatabaseConfig(BaseSettings):
@@ -22,9 +18,7 @@ class DatabaseConfig(BaseSettings):
 class LoggingConfig(BaseSettings):
     """Logging configuration."""
 
-    level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
-        default="INFO", description="Log level"
-    )
+    level: str = Field(default="INFO", description="Log level")
     file: str = Field(default="/app/logs/bot.log", description="Log file path")
     rotation: str = Field(default="100 MB", description="Log rotation size")
     retention: str = Field(default="7 days", description="Log retention period")
@@ -41,7 +35,6 @@ class IBGatewayConfig(BaseSettings):
     auto_reconnect: bool = Field(default=True, description="Enable auto-reconnect")
     reconnect_interval: int = Field(default=5, ge=1, description="Reconnect interval in seconds")
     max_reconnect_attempts: int = Field(default=10, ge=1, description="Maximum reconnect attempts")
-    tws_userid: str = Field(default="", description="IBKR username for authentication")
 
 
 class HealthCheckConfig(BaseSettings):
@@ -64,13 +57,6 @@ class HistoricalDataConfig(BaseSettings):
     )
     import_enabled: bool = Field(default=True, description="Enable data import")
 
-    @model_validator(mode="after")
-    def make_paths_absolute(self) -> "HistoricalDataConfig":
-        """Ensure all paths are absolute."""
-        self.csv_dir = str(Path(self.csv_dir).absolute())
-        self.db_path = str(Path(self.db_path).absolute())
-        return self
-
 
 class CoolTraderConfig(BaseSettings):
     """CoolTrader data provider configuration."""
@@ -83,19 +69,6 @@ class CoolTraderConfig(BaseSettings):
     download_schedule: str = Field(default="0 10 * * *", description="Download cron schedule")
     import_schedule: str = Field(default="5 10 * * *", description="Import cron schedule")
 
-    @field_validator("username", "password", mode="before", check_fields=False)
-    @classmethod
-    def check_credentials(cls, v, info) -> str:
-        from os import environ
-
-        if v:
-            return v
-        key = f"COOLTRADER_{info.field_name.upper()}"
-        value = environ.get(key, "")
-        if not value:
-            raise ValueError("COOLTRADER_USERNAME and COOLTRADER_PASSWORD must be set")
-        return value
-
 
 class AnalysisConfig(BaseSettings):
     """Backtesting analysis configuration."""
@@ -105,12 +78,6 @@ class AnalysisConfig(BaseSettings):
     commission_rate: float = Field(default=0.001, description="Commission rate")
     slippage: float = Field(default=0.02, description="Slippage percentage (2%)")
     fixed_commission: float = Field(default=6.6, description="Fixed commission per trade ($6.60)")
-
-    @model_validator(mode="after")
-    def make_path_absolute(self) -> "AnalysisConfig":
-        """Ensure output path is absolute."""
-        self.output_dir = str(Path(self.output_dir).absolute())
-        return self
 
 
 class ASXScannerConfig(BaseSettings):
@@ -190,6 +157,9 @@ class Config(BaseSettings):
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
         case_sensitive=False,
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
@@ -206,103 +176,13 @@ class Config(BaseSettings):
     )
 
     @classmethod
-    def from_yaml(cls, config_path: str | Path) -> "Config":
-        """Load configuration from YAML file with environment variable overrides.
-
-        Args:
-            config_path: Path to YAML configuration file
+    def load(cls) -> "Config":
+        """Load configuration from environment variables.
 
         Returns:
-            Config instance with loaded settings
-
-        Raises:
-            FileNotFoundError: If config file doesn't exist
-            ValueError: If YAML parsing fails
+            Config instance
         """
-        config_path = Path(config_path)
-        if not config_path.exists():
-            raise FileNotFoundError(f"Configuration file not found: {config_path}")
-
-        yaml = YAML()
-        with open(config_path) as f:
-            config_dict = yaml.load(f) or {}
-
-        config_dict = cls._normalize_keys(config_dict)
-
-        database_data = config_dict.pop("database", {})
-        logging_data = config_dict.pop("logging", {})
-        gateway_data = config_dict.pop("gateway", {})
-        health_data = config_dict.pop("health", {})
-        historical_data_data = config_dict.pop("historical_data", {})
-        cooltrader_data = config_dict.pop("cooltrader", {})
-        analysis_data = config_dict.pop("analysis", {})
-        scanners_data = config_dict.pop("scanners", {})
-        scanner_data = config_dict.pop("scanner", {})
-        announcement_gap_strategy_data = config_dict.pop("announcement_gap_strategy", {})
-
-        database_config = DatabaseConfig(**database_data)
-        logging_config = LoggingConfig(**logging_data)
-        gateway_config = IBGatewayConfig(**gateway_data)
-        health_config = HealthCheckConfig(**health_data)
-        historical_data_config = HistoricalDataConfig(**historical_data_data)
-        cooltrader_config = CoolTraderConfig(**cooltrader_data)
-        analysis_config = AnalysisConfig(**analysis_data)
-        scanners_config = ScannerServiceConfig(**scanners_data)
-        scanner_config = GapScannerConfig(**scanner_data)
-        announcement_gap_strategy_config = AnnouncementGapStrategyConfig(
-            **announcement_gap_strategy_data
-        )
-
-        return cls(
-            database=database_config,
-            logging=logging_config,
-            gateway=gateway_config,
-            health=health_config,
-            historical_data=historical_data_config,
-            cooltrader=cooltrader_config,
-            analysis=analysis_config,
-            scanners=scanners_config,
-            scanner=scanner_config,
-            announcement_gap_strategy=announcement_gap_strategy_config,
-        )
-
-    @staticmethod
-    def _normalize_keys(data: dict[str, Any]) -> dict[str, Any]:
-        """Convert hyphenated keys to underscored for Python compatibility.
-
-        Args:
-            data: Dictionary with possibly hyphenated keys
-
-        Returns:
-            Dictionary with normalized keys
-        """
-        normalized = {}
-        for key, value in data.items():
-            new_key = key.replace("-", "_")
-            if isinstance(value, dict):
-                normalized[new_key] = Config._normalize_keys(value)
-            else:
-                normalized[new_key] = value
-        return normalized
+        return cls()
 
 
-def load_config(config_path: str | Path = "/app/config/settings.yaml") -> Config:
-    """Load application configuration.
-
-    Args:
-        config_path: Path to configuration file
-
-    Returns:
-        Config instance
-
-    Raises:
-        FileNotFoundError: If config file doesn't exist
-        ValueError: If configuration is invalid
-    """
-    try:
-        return Config.from_yaml(config_path)
-    except FileNotFoundError:
-        return Config()
-
-
-config: Config = load_config()
+config: Config = Config.load()

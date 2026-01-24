@@ -29,7 +29,7 @@ COPY --from=builder /app/.venv /app/.venv
 
 COPY ./app /app/app
 
-RUN mkdir -p /app/data /app/logs /app/config
+RUN mkdir -p /app/data /app/logs
 
 RUN useradd -m -u 1000 trader && \
     chown -R trader:trader /app

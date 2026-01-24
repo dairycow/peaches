@@ -43,7 +43,7 @@ class StrategyService:
         logger.info("Initializing strategies...")
 
         try:
-            from app.gateway import gateway_manager
+            from app.external.ib import gateway_manager
 
             connection = gateway_manager.get_connection()
             if not connection or not connection.main_engine or not connection.event_engine:

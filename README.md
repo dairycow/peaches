@@ -11,9 +11,11 @@ git clone https://github.com/dairycow/peaches.git
 cd peaches
 cp .env.example .env
 
-# Set IBKR credentials in .env
-echo "your_password" > secrets/tws_password.txt
-chmod 600 secrets/tws_password.txt
+# Edit .env with your credentials
+# TWS_USERID=your_ibkr_username
+# TWS_PASSWORD=your_ibkr_password
+# COOLTRADER_USERNAME=your_cooltrader_username
+# COOLTRADER_PASSWORD=your_cooltrader_password
 
 # Start
 docker compose up -d
@@ -65,15 +67,17 @@ vt-symbol: "BHP-STK-SMART"
 
 **Key Environment Variables** (.env):
 - `TWS_USERID` - IBKR username
+- `TWS_PASSWORD` - IBKR password
 - `TRADING_MODE` - `paper` or `live`
+- `COOLTRADER_USERNAME` - CoolTrader username
+- `COOLTRADER_PASSWORD` - CoolTrader password
 - `IB_GATEWAY_PORT` - Default `4004`
 - `LOG_LEVEL` - `INFO`
 - `AUTO_RESTART_TIME` - Daily IB Gateway restart time (HH:MM AM/PM)
 
 **VNC Debugging** (optional, security risk):
 ```bash
-# Uncomment in .env: VNC_SERVER_PASSWORD_FILE=/run/secrets/vnc_password
-echo "password" > secrets/vnc_password.txt
+# Set in .env: VNC_SERVER_PASSWORD=your_password
 docker compose restart ib-gateway
 # Connect VNC client to localhost:5900
 ```

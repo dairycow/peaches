@@ -84,9 +84,7 @@ ssh/
 *_private*
 *.pem
 *.key
-tws_password.txt
-ssh_password.txt
-vnc_password.txt
+
 
 # Temporary files
 tmp/
