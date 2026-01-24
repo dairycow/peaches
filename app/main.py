@@ -27,8 +27,8 @@ async def startup() -> None:
     """Initialize application components."""
     logger.info("Starting peaches-trading-bot...")
 
-    from vnpy.trader.setting import SETTINGS
     import vnpy_sqlite.sqlite_database
+    from vnpy.trader.setting import SETTINGS
     from vnpy.trader.utility import get_file_path
 
     SETTINGS["database.name"] = "sqlite"
