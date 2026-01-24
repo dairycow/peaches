@@ -57,7 +57,6 @@ services:
       - COOLTRADER__PASSWORD=${COOLTRADER_PASSWORD}
       - SCANNERS__NOTIFICATIONS__DISCORD__WEBHOOK_URL=${SCANNERS_NOTIFICATIONS_DISCORD_WEBHOOK_URL:-}
     volumes:
-      - ./app/strategies:/app/strategies:ro
       - ./data:/app/data
       - ./logs:/app/logs
     networks:
