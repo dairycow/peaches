@@ -5,7 +5,7 @@ import pytest
 
 def test_get_download_url_format():
     """Test download URL format."""
-    from app.cooltrader import CoolTraderDownloader
+    from app.external.cooltrader import CoolTraderDownloader
 
     with pytest.MonkeyPatch().context() as m:
         m.setenv("COOLTRADER_USERNAME", "test_user")
@@ -19,7 +19,7 @@ def test_get_download_url_format():
 
 def test_get_download_url_various_dates():
     """Test URL generation for different dates."""
-    from app.cooltrader import CoolTraderDownloader
+    from app.external.cooltrader import CoolTraderDownloader
 
     with pytest.MonkeyPatch().context() as m:
         m.setenv("COOLTRADER_USERNAME", "test_user")

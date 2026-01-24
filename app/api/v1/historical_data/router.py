@@ -8,8 +8,8 @@ from loguru import logger
 from pydantic import BaseModel
 
 from app.config import config
-from app.cooltrader import create_downloader
-from app.database import get_database_manager
+from app.external.cooltrader import create_downloader
+from app.external.vnpy.database import get_database_manager
 from app.scheduler import get_scheduler
 
 router = APIRouter(prefix="/import", tags=["historical-data"])

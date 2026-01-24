@@ -115,7 +115,7 @@ async def run_download() -> DownloadResult:
     logger.info("Running CoolTrader download job")
 
     try:
-        from app.cooltrader import create_downloader
+        from app.external.cooltrader import create_downloader
 
         downloader = create_downloader()
         filepath = await downloader.download_yesterday()
@@ -142,7 +142,7 @@ async def run_import() -> ImportResult:
     logger.info("Running CSV import job")
 
     try:
-        from app.importer import create_importer
+        from app.external.cooltrader import create_importer
 
         importer = create_importer(config.historical_data.csv_dir)
         result = importer.import_all()

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 from vnpy.trader.constant import Exchange, Interval
 
-from app.database import get_database_manager
+from app.external.vnpy.database import get_database_manager
 from app.scanners.base import ScannerBase, ScanResult
 from app.scanners.gap.filters import PriceVolumeFilter
 from app.scanners.gap.gap_detector import GapDetector
@@ -21,7 +21,7 @@ from app.scanners.gap.models import (
 from app.scanners.gap.opening_range import OpeningRangeTracker
 
 if TYPE_CHECKING:
-    from app.database import DatabaseManager
+    from app.external.vnpy.database import DatabaseManager
 
 
 class GapScanner(ScannerBase):
