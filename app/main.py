@@ -28,9 +28,16 @@ async def startup() -> None:
     logger.info("Starting peaches-trading-bot...")
 
     from vnpy.trader.setting import SETTINGS
+    import vnpy_sqlite.sqlite_database
+    from vnpy.trader.utility import get_file_path
 
     SETTINGS["database.name"] = "sqlite"
     SETTINGS["database.database"] = config.database.path
+
+    filename: str = SETTINGS["database.database"] or "database.db"
+    path: str = str(get_file_path(filename))
+    vnpy_sqlite.sqlite_database.db = vnpy_sqlite.sqlite_database.PeeweeSqliteDatabase(path)
+    vnpy_sqlite.sqlite_database.path = path
 
     _setup_logging()
 
@@ -40,7 +47,12 @@ async def startup() -> None:
 
     try:
         await gateway_service.start()
-        await strategy_service.start()
+
+        try:
+            await strategy_service.start()
+        except Exception as e:
+            logger.warning(f"Failed to initialize strategies: {e}")
+            logger.info("Continuing without strategies")
 
         init_scanner()
         logger.info("Gap scanner initialized")
