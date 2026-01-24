@@ -61,9 +61,6 @@ async def scan_announcement_gap(request: AnnouncementGapScanRequest) -> Announce
         scanner_config = ScannerConfig(
             url=config.scanners.asx.url,
             timeout=config.scanners.asx.timeout,
-            exclude_tickers=config.scanners.asx.exclude_tickers,
-            min_ticker_length=config.scanners.asx.min_ticker_length,
-            max_ticker_length=config.scanners.asx.max_ticker_length,
         )
 
         announcement_gap_service = get_announcement_gap_strategy_service(
@@ -113,9 +110,6 @@ async def sample_opening_ranges(request: AnnouncementGapScanRequest) -> OpeningR
         scanner_config = ScannerConfig(
             url=config.scanners.asx.url,
             timeout=config.scanners.asx.timeout,
-            exclude_tickers=config.scanners.asx.exclude_tickers,
-            min_ticker_length=config.scanners.asx.min_ticker_length,
-            max_ticker_length=config.scanners.asx.max_ticker_length,
         )
 
         announcement_gap_service = get_announcement_gap_strategy_service(

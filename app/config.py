@@ -89,9 +89,6 @@ class ASXScannerConfig(BaseSettings):
     )
     scan_schedule: str = Field(default="30 10 * * 1-5", description="Scan cron schedule (AEST)")
     timeout: int = Field(default=10, ge=1, description="Request timeout in seconds")
-    exclude_tickers: list[str] = Field(default_factory=list, description="Tickers to exclude")
-    min_ticker_length: int = Field(default=3, ge=1, le=6, description="Minimum ticker length")
-    max_ticker_length: int = Field(default=6, ge=1, le=6, description="Maximum ticker length")
 
 
 class DiscordConfig(BaseSettings):

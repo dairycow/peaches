@@ -101,9 +101,6 @@ async def run_scan() -> JobResult:
             ScannerConfig(
                 url=config.scanners.asx.url,
                 timeout=config.scanners.asx.timeout,
-                exclude_tickers=config.scanners.asx.exclude_tickers,
-                min_ticker_length=config.scanners.asx.min_ticker_length,
-                max_ticker_length=config.scanners.asx.max_ticker_length,
             )
         )
 
