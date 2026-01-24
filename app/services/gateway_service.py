@@ -5,7 +5,7 @@ import asyncio
 from loguru import logger
 
 from app.config import config
-from app.gateway import gateway_manager
+from app.external.ib.gateway import gateway_manager
 from app.services.health_service import health_checker
 
 

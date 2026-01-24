@@ -10,7 +10,7 @@ from loguru import logger
 from vnpy.trader.constant import Exchange, Interval
 from vnpy.trader.object import BarData
 
-from app.database import DatabaseManager, get_database_manager
+from app.external.vnpy.database import DatabaseManager, get_database_manager
 
 
 class ImportResult(TypedDict):

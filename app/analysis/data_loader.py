@@ -8,7 +8,7 @@ from vnpy.trader.constant import Exchange, Interval
 if TYPE_CHECKING:
     from vnpy.trader.object import BarData
 
-from app.database import get_database_manager
+from app.external.vnpy.database import get_database_manager
 
 
 def load_bars(
