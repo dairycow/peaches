@@ -34,8 +34,9 @@ env/
 .idea/
 
 # VSCode
-.vscode/
+.vscode/*
 !.vscode/launch.json
+!.vscode/settings.json
 *.code-workspace
 
 # Jupyter
