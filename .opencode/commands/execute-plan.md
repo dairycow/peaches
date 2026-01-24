@@ -5,7 +5,7 @@ agent: build
 
 $1
 
-Start by creating a new git worktree by running: `./create-worktree.sh <name>`.
+Start by creating a new git worktree by running: `./create-worktree.sh <worktree-name>`.
 
 Before starting execution:
 1. Confirm the worktree was created successfully
