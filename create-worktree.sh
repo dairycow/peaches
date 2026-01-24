@@ -40,9 +40,8 @@ uv sync --group dev
 ln -s /opt/peaches/data data-prod
 ln -s /opt/peaches/logs logs-prod
 
-# Copy .env and secrets from production
+# Copy .env from production
 cp /opt/peaches/.env .env
-cp -r /opt/peaches/secrets/ secrets/
 
 # Copy pyrightconfig.json (already uses relative paths, no updates needed)
 cp "$PROJECT_ROOT/pyrightconfig.json" pyrightconfig.json

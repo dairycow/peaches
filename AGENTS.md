@@ -220,6 +220,5 @@ Use `/capture-mistakes` command to automatically:
 ## Configuration Files
 
 - `.env` - Environment variables
-- `config/settings.yaml` - App configuration
 - `docker-compose.yml` - Service definitions
 - `.opencode/opencode.json` - OpenCode permissions

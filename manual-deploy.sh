@@ -20,14 +20,6 @@ if [ -f .env ]; then
   set +a
 fi
 
-echo "=== Validating required files ==="
-for secret in ./secrets/tws_password.txt ./secrets/vnc_password.txt; do
-  if [ ! -f "$secret" ]; then
-    echo "❌ Required secret file missing: $secret"
-    exit 1
-  fi
-done
-
 echo "=== Validating required environment variables ==="
 required_vars=("TWS_USERID" "TRADING_MODE" "COOLTRADER_USERNAME")
 for var in "${required_vars[@]}"; do

@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       TWS_USERID: ${TWS_USERID}
-      TWS_PASSWORD_FILE: /run/secrets/tws_password
+      TWS_PASSWORD: ${TWS_PASSWORD}
       TRADING_MODE: ${TRADING_MODE:-paper}
       TWOFA_TIMEOUT_ACTION: restart
       RELOGIN_AFTER_TWOFA_TIMEOUT: yes
@@ -18,10 +18,7 @@ services:
       EXISTING_SESSION_DETECTED_ACTION: primaryoverride
       ALLOW_BLIND_TRADING: no
       TIME_ZONE: ${TIME_ZONE:-Etc/UTC}
-      VNC_SERVER_PASSWORD_FILE: ${VNC_SERVER_PASSWORD_FILE:-}
-    secrets:
-      - tws_password
-      - vnc_password
+      VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD:-}
     volumes:
       - ib-gateway-config:/home/ibgateway/tws_settings
     networks:
@@ -52,16 +49,16 @@ services:
       ib-gateway:
         condition: service_healthy
     environment:
-      - IB_GATEWAY_HOST=ib-gateway
-      - IB_GATEWAY_PORT=${IB_GATEWAY_PORT:-4004}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - GATEWAY__HOST=ib-gateway
+      - GATEWAY__PORT=${IB_GATEWAY_PORT:-4004}
+      - LOGGING__LEVEL=${LOG_LEVEL:-INFO}
       - PYTHONUNBUFFERED=1
-      - COOLTRADER_USERNAME=${COOLTRADER_USERNAME}
-      - COOLTRADER_PASSWORD=${COOLTRADER_PASSWORD}
+      - COOLTRADER__USERNAME=${COOLTRADER_USERNAME}
+      - COOLTRADER__PASSWORD=${COOLTRADER_PASSWORD}
+      - SCANNERS__NOTIFICATIONS__DISCORD__WEBHOOK_URL=${SCANNERS_NOTIFICATIONS_DISCORD_WEBHOOK_URL:-}
     volumes:
-      - ./config:/app/config:ro
       - ./app/strategies:/app/strategies:ro
-      - /opt/peaches/data:/app/data
+      - ./data:/app/data
       - ./logs:/app/logs
     networks:
       - trading
@@ -88,9 +85,3 @@ volumes:
 networks:
   trading:
     driver: bridge
-
-secrets:
-  tws_password:
-    file: ./secrets/tws_password.txt
-  vnc_password:
-    file: ./secrets/vnc_password.txt
