@@ -2,12 +2,12 @@
 
 ## Language
 - Use Australian English spelling (e.g., colour, analyse, initialise, organise)
-- No emojis in documentation
+- No emojis in documentation or code
 
 ## Development Workflow
 
 ### Git Worktree Development
-Worktrees are used for feature development, keeping main clean.
+Worktrees are used for development, keeping main clean.
 
 ```bash
 # Create a new worktree (from ~/peaches)
@@ -33,7 +33,6 @@ cd /opt/peaches
 
 Deployment:
 - Pulls latest from `origin/main` (use `merge-worktree.sh` to push first)
-- Validates secrets and env vars
 - Rebuilds Docker images
 - Restarts containers
 - Waits for health checks
@@ -43,16 +42,16 @@ Deployment:
 ### Commands
 ```bash
 # Format
-uv run ruff format app/
+make format
 
 # Lint
-uv run ruff check app/
+make lint
 
 # Type check
-uv run mypy app/
+make type-check
 
 # Test
-uv run pytest
+make test
 
 # All checks
 make check
@@ -169,11 +168,14 @@ Test business logic, not frameworks. Avoid mocks for vn.py/FastAPI.
 
 ### Commands
 ```bash
-# All tests
-uv run pytest
+# Unit tests (excludes integration)
+make test
 
-# With coverage
-uv run pytest --cov=app --cov-report=term-missing
+# Integration tests
+make test-integration
+
+# All tests (unit + integration)
+make test-all
 
 # Single file
 uv run pytest tests/test_file.py
@@ -193,29 +195,6 @@ uv run pytest -k "test_import"
 4. **Health checks required** - all services must be healthy
 5. **Type hints encouraged** but type checking is relaxed
 6. **Avoid mocks** - prefer real components
-7. **Track AI mistakes** - use `/capture-mistakes` to document and learn from AI-generated mistakes
-
-## AI Mistake Tracking
-
-### docs/MISTAKES.md
-Maintains a chronological log of AI-generated mistakes to prevent recurrence.
-
-### Capture Workflow
-Use `/capture-mistakes` command to automatically:
-- Analyse recent AI-generated changes
-- Identify common Python pattern violations
-- Categorise mistakes by severity (INFO/WARNING/ERROR)
-- Append structured entries to docs/MISTAKES.md
-
-### Mistake Categories
-- **Code patterns**: Async violations, error handling, type hints, style issues
-- **Testing**: Missing tests, improper mocking, test failures
-- **Documentation**: Missing docstrings, outdated comments
-
-### Severity Levels
-- **INFO**: Style violations, minor issues, recommendations
-- **WARNING**: Potential issues, non-critical bugs
-- **ERROR**: Blocking issues, test failures, deployment failures
 
 ## Configuration Files
 
