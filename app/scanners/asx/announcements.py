@@ -7,7 +7,7 @@ from typing import TypedDict
 
 import aiohttp
 from aiohttp import ClientTimeout
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -33,9 +33,6 @@ class ScannerConfig:
 
     url: str
     timeout: int
-    exclude_tickers: list[str]
-    min_ticker_length: int
-    max_ticker_length: int
 
 
 @dataclass
@@ -144,7 +141,7 @@ class ASXAnnouncementScanner(ScannerBase):
 
         return announcements
 
-    def _parse_row(self, cells: list, asx_base: str) -> Announcement | None:
+    def _parse_row(self, cells: list[Tag], asx_base: str) -> Announcement | None:
         """Parse a single announcement row."""
         try:
             ticker = cells[0].get_text(strip=True)
@@ -159,7 +156,7 @@ class ASXAnnouncementScanner(ScannerBase):
             if not pdf_link or not pdf_link.get("href"):
                 return None
 
-            pdf_href = pdf_link["href"]
+            pdf_href = str(pdf_link.get("href", ""))
             announcement_id = pdf_href.split("idsId=")[1] if "idsId=" in pdf_href else ""
 
             cell_lines = cells[3].get_text().split("\n")
