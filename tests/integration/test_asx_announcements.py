@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.scanners.asx.price_sensitive import ASXPriceSensitiveScanner, ScannerConfig
+from app.scanners.asx.announcements import ASXPriceSensitiveScanner, ScannerConfig
 
 
 @pytest.mark.integration
