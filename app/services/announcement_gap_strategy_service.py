@@ -64,7 +64,7 @@ class AnnouncementGapStrategyService:
         logger.info(f"Found {len(scan_result.announcements)} price-sensitive announcements")
 
         announcement_symbols = [
-            (ann.ticker, ann.headline, datetime.fromisoformat(ann.timestamp))
+            (ann["ticker"], ann["headline"], datetime.fromisoformat(f"{ann['date']} {ann['time']}"))
             for ann in scan_result.announcements
         ]
 
