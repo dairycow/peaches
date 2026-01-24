@@ -25,7 +25,7 @@ def init_scanner() -> None:
     """Initialize the global gap scanner instance."""
     global gap_scanner
 
-    from app.database import get_database_manager
+    from app.external.vnpy.database import get_database_manager
 
     gap_scanner = GapScanner(get_database_manager())
 
