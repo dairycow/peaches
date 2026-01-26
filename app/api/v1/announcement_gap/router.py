@@ -2,18 +2,12 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.config import config
-from app.services.announcement_gap_strategy_service import (
-    AnnouncementGapStrategyService,
-    get_announcement_gap_strategy_service,
-)
 
-router = APIRouter(prefix="/api/v1/announcement-gap", tags=["announcement-gap"])
-
-announcement_gap_service: AnnouncementGapStrategyService | None = None
+router = APIRouter(prefix="/announcement-gap", tags=["announcement-gap"])
 
 
 class AnnouncementGapScanRequest(BaseModel):
@@ -44,7 +38,9 @@ class OpeningRangeResponse(BaseModel):
 
 
 @router.post("/scan", response_model=AnnouncementGapScanResponse)
-async def scan_announcement_gap(request: AnnouncementGapScanRequest) -> AnnouncementGapScanResponse:
+async def scan_announcement_gap(
+    request: AnnouncementGapScanRequest,
+) -> AnnouncementGapScanResponse:
     """Scan for announcement gap breakout candidates.
 
     Filters stocks by:
@@ -53,24 +49,23 @@ async def scan_announcement_gap(request: AnnouncementGapScanRequest) -> Announce
     - Price > 6-month high
     - Price > minimum threshold
     """
-    global announcement_gap_service
+    from app.scanners.asx import ScannerConfig
+    from app.services.announcement_gap_strategy_service import AnnouncementGapStrategyService
 
     try:
-        from app.scanners.asx import ScannerConfig
-
         scanner_config = ScannerConfig(
             url=config.scanners.asx.url,
             timeout=config.scanners.asx.timeout,
         )
 
-        announcement_gap_service = get_announcement_gap_strategy_service(
-            scanner_config,
+        service = AnnouncementGapStrategyService(
+            asx_scanner_config=scanner_config,
             min_price=request.min_price,
             min_gap_pct=request.min_gap_pct,
             lookback_months=request.lookback_months,
         )
 
-        candidates = await announcement_gap_service.run_daily_scan()
+        candidates = await service.run_daily_scan()
 
         candidate_dicts = [
             {
@@ -93,33 +88,34 @@ async def scan_announcement_gap(request: AnnouncementGapScanRequest) -> Announce
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}") from e
+        raise ValueError(f"Scan failed: {str(e)}") from e
 
 
 @router.post("/sample-opening-ranges", response_model=OpeningRangeResponse)
-async def sample_opening_ranges(request: AnnouncementGapScanRequest) -> OpeningRangeResponse:
+async def sample_opening_ranges(
+    request: AnnouncementGapScanRequest,
+) -> OpeningRangeResponse:
     """Scan candidates and sample opening ranges.
 
     Returns candidates along with their 5-minute opening range highs.
     """
-    global announcement_gap_service
+    from app.scanners.asx import ScannerConfig
+    from app.services.announcement_gap_strategy_service import AnnouncementGapStrategyService
 
     try:
-        from app.scanners.asx import ScannerConfig
-
         scanner_config = ScannerConfig(
             url=config.scanners.asx.url,
             timeout=config.scanners.asx.timeout,
         )
 
-        announcement_gap_service = get_announcement_gap_strategy_service(
-            scanner_config,
+        service = AnnouncementGapStrategyService(
+            asx_scanner_config=scanner_config,
             min_price=request.min_price,
             min_gap_pct=request.min_gap_pct,
             lookback_months=request.lookback_months,
         )
 
-        candidates, opening_ranges = await announcement_gap_service.scan_and_sample_opening_ranges()
+        candidates, opening_ranges = await service.scan_and_sample_opening_ranges()
 
         return OpeningRangeResponse(
             success=True,
@@ -128,6 +124,4 @@ async def sample_opening_ranges(request: AnnouncementGapScanRequest) -> OpeningR
         )
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Opening range sampling failed: {str(e)}"
-        ) from e
+        raise ValueError(f"Opening range sampling failed: {str(e)}") from e

@@ -1,74 +1,16 @@
 """Main application entry point with orchestration and health checks."""
 
-import asyncio
 import sys
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
 
 from fastapi import FastAPI
 from loguru import logger
 
 from app.api.v1 import router as v1_router
-from app.api.v1.scanner import init_scanner
+from app.bot import get_bot
 from app.config import config
-from app.scheduler import get_scanner_scheduler, get_scheduler
-from app.services.gateway_service import gateway_service
-from app.services.strategy_service import strategy_service
-
-scheduler: Any = None
-scanner_scheduler: Any = None
-
-_health_check_task: asyncio.Task[None] | None = None
-
-
-async def startup() -> None:
-    """Initialize application components."""
-    logger.info("Starting peaches-trading-bot...")
-
-    import vnpy_sqlite.sqlite_database
-    from vnpy.trader.setting import SETTINGS
-    from vnpy.trader.utility import get_file_path
-
-    SETTINGS["database.name"] = "sqlite"
-    SETTINGS["database.database"] = config.database.path
-
-    filename: str = SETTINGS["database.database"] or "database.db"
-    path: str = str(get_file_path(filename))
-    vnpy_sqlite.sqlite_database.db = vnpy_sqlite.sqlite_database.PeeweeSqliteDatabase(path)
-    vnpy_sqlite.sqlite_database.path = path
-
-    _setup_logging()
-
-    global scheduler, scanner_scheduler
-    scheduler = get_scheduler()
-    scanner_scheduler = get_scanner_scheduler()
-
-    try:
-        await gateway_service.start()
-
-        try:
-            await strategy_service.start()
-        except Exception as e:
-            logger.warning(f"Failed to initialize strategies: {e}")
-            logger.info("Continuing without strategies")
-
-        init_scanner()
-        logger.info("Gap scanner initialized")
-
-        if config.historical_data.import_enabled:
-            await scheduler.start()
-
-        if config.scanners.enabled:
-            await scanner_scheduler.start()
-
-        _start_health_checks()
-        logger.info("Application started successfully")
-    except Exception as e:
-        logger.error(f"Failed to start application: {e}")
-        await cleanup()
-        sys.exit(1)
 
 
 def _setup_logging() -> None:
@@ -105,58 +47,19 @@ def _setup_logging() -> None:
     logger.info(f"Logging configured at {log_level} level")
 
 
-def _start_health_checks() -> None:
-    """Start health check monitoring."""
-    global _health_check_task
+async def _setup_database() -> None:
+    """Setup vn.py SQLite database."""
+    import vnpy_sqlite.sqlite_database
+    from vnpy.trader.setting import SETTINGS
+    from vnpy.trader.utility import get_file_path
 
-    if not config.health.enabled:
-        logger.info("Health checks disabled")
-        return
+    SETTINGS["database.name"] = "sqlite"
+    SETTINGS["database.database"] = config.database.path
 
-    logger.info("Health checks enabled")
-    _health_check_task = asyncio.create_task(_run_health_checks())
-
-
-async def _run_health_checks() -> None:
-    """Run periodic health checks."""
-    await gateway_service.health_check_loop()
-
-
-async def shutdown() -> None:
-    """Gracefully shutdown application."""
-    global _health_check_task
-
-    logger.info("Shutting down application...")
-
-    try:
-        if _health_check_task is not None:
-            _health_check_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await _health_check_task
-
-        strategy_service.stop()
-
-        if scheduler.is_running():
-            await scheduler.stop()
-
-        if scanner_scheduler.is_running():
-            await scanner_scheduler.stop()
-
-        await gateway_service.stop()
-        logger.info("Application shutdown complete")
-
-    except Exception as e:
-        logger.error(f"Error during shutdown: {e}")
-
-
-async def cleanup() -> None:
-    """Cleanup resources."""
-    logger.info("Cleaning up resources...")
-
-    try:
-        await gateway_service.stop()
-    except Exception as e:
-        logger.error(f"Cleanup error: {e}")
+    filename: str = SETTINGS["database.database"] or "database.db"
+    path: str = str(get_file_path(filename))
+    vnpy_sqlite.sqlite_database.db = vnpy_sqlite.sqlite_database.PeeweeSqliteDatabase(path)
+    vnpy_sqlite.sqlite_database.path = path
 
 
 @asynccontextmanager
@@ -169,11 +72,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     Yields:
         None
     """
-    await startup()
+    logger.info("Starting peaches-trading-bot...")
+
+    _setup_logging()
+    await _setup_database()
+
+    bot = get_bot()
+    await bot.start()
 
     yield
 
-    await shutdown()
+    await bot.stop()
 
 
 app = FastAPI(
