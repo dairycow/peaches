@@ -2,13 +2,15 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.config import config
-from app.services.health_service import HealthStatus, health_checker
+from app.container import get_config, get_health_checker
+from app.services.health_service import HealthStatus
 
 router = APIRouter(prefix="/health", tags=["health"])
+get_health_checker_dep = get_health_checker
+get_config_dep = get_config
 
 
 class HealthResponse(BaseModel):
@@ -28,6 +30,7 @@ async def health_check() -> HealthResponse:
     Returns:
         HealthResponse with current status
     """
+    health_checker = get_health_checker_dep()
     return HealthResponse(
         status=health_checker.get_status(),
         timestamp=datetime.now(),
@@ -44,6 +47,8 @@ async def check_gateway() -> dict[str, bool | int]:
     Returns:
         Dictionary with gateway status
     """
+    health_checker = get_health_checker_dep()
+    config = get_config_dep()
     return {
         "connected": health_checker.gateway_connected,
         "consecutive_failures": health_checker.consecutive_failures,
@@ -52,37 +57,20 @@ async def check_gateway() -> dict[str, bool | int]:
 
 
 @router.get("/ready")
-async def readiness_check() -> dict[str, bool | HealthStatus]:
-    """Readiness check endpoint.
+async def readiness_check() -> dict[str, str]:
+    """Readiness probe for Kubernetes.
 
     Returns:
-        Dictionary indicating readiness status
-
-    Raises:
-        HTTPException: If not ready
+        Dictionary indicating service is ready
     """
-    health_status = health_checker.get_status()
-
-    if health_status == HealthStatus.UNHEALTHY:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Service unhealthy: {health_checker.consecutive_failures} consecutive failures",
-        )
-
-    if health_status == HealthStatus.DEGRADED:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service degraded: gateway not connected",
-        )
-
-    return {"ready": True, "status": health_status}
+    return {"status": "ready"}
 
 
 @router.get("/live")
-async def liveness_check() -> dict[str, bool | float]:
-    """Liveness check endpoint.
+async def liveness_check() -> dict[str, str]:
+    """Liveness probe for Kubernetes.
 
     Returns:
-        Dictionary indicating liveness status
+        Dictionary indicating service is alive
     """
-    return {"alive": True, "uptime_seconds": health_checker.get_uptime()}
+    return {"status": "alive"}

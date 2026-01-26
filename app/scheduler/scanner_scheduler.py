@@ -93,9 +93,9 @@ async def run_scan() -> JobResult:
 
     try:
         from app.scanners.asx import ASXPriceSensitiveScanner, ScannerConfig
-        from app.services.notification_service import get_notification_service
-        from app.services.scanner_service import get_scanner_service
-        from app.services.strategy_trigger_service import get_strategy_trigger_service
+        from app.services.notification_service import NotificationService
+        from app.services.scanner_service import ScannerService
+        from app.services.strategy_trigger_service import StrategyTriggerService
 
         scanner = ASXPriceSensitiveScanner(
             ScannerConfig(
@@ -104,18 +104,18 @@ async def run_scan() -> JobResult:
             )
         )
 
-        notification_service = get_notification_service(
+        notification_service = NotificationService(
             webhook_url=config.scanners.notifications.discord.webhook_url,
             username=config.scanners.notifications.discord.username,
             enabled=config.scanners.notifications.discord.enabled,
         )
 
-        strategy_trigger_service = get_strategy_trigger_service(
+        strategy_trigger_service = StrategyTriggerService(
             enabled=config.scanners.triggers.enabled,
             strategy_names=config.scanners.triggers.strategies,
         )
 
-        scanner_service = get_scanner_service(
+        scanner_service = ScannerService(
             scanner=scanner,
             notification_service=notification_service,
             strategy_trigger_service=strategy_trigger_service,

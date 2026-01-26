@@ -95,32 +95,5 @@ class AnnouncementGapStrategyService:
         return candidates, opening_ranges
 
 
-announcement_gap_strategy_service: AnnouncementGapStrategyService | None = None
-
-
-def get_announcement_gap_strategy_service(
-    asx_scanner_config: ScannerConfig,
-    min_price: float = 0.20,
-    min_gap_pct: float = 0.0,
-    lookback_months: int = 6,
-) -> AnnouncementGapStrategyService:
-    """Get or create announcement gap strategy service singleton.
-
-    Args:
-        asx_scanner_config: ASX announcement scanner configuration
-        min_price: Minimum stock price threshold
-        min_gap_pct: Minimum gap percentage
-        lookback_months: Lookback period for high calculation
-
-    Returns:
-        AnnouncementGapStrategyService instance
-    """
-    global announcement_gap_strategy_service
-    if announcement_gap_strategy_service is None:
-        announcement_gap_strategy_service = AnnouncementGapStrategyService(
-            asx_scanner_config,
-            min_price=min_price,
-            min_gap_pct=min_gap_pct,
-            lookback_months=lookback_months,
-        )
-    return announcement_gap_strategy_service
+# REMOVED: Global singleton and get_announcement_gap_strategy_service()
+# Service is now created per-request in endpoints (proper DI pattern)
