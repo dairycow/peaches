@@ -11,6 +11,7 @@ from app.services.gateway_service import gateway_service
 from app.services.strategy_service import strategy_service
 
 if TYPE_CHECKING:
+    from app.events.bus import EventBus
     from app.scheduler.import_scheduler import ImportScheduler
     from app.scheduler.scanner_scheduler import ScannerScheduler
 
@@ -28,6 +29,7 @@ class TradingBot:
         self.scheduler: ImportScheduler | None = None
         self.scanner_scheduler: ScannerScheduler | None = None
         self._health_check_task: asyncio.Task[None] | None = None
+        self.event_bus: EventBus | None = None
 
     async def start(self) -> None:
         """Start the trading bot."""
@@ -36,6 +38,12 @@ class TradingBot:
         from app.api.v1.scanner import init_scanner
 
         try:
+            from app.events.bus import EventBus
+
+            self.event_bus = EventBus()
+            await self.event_bus.start()
+            logger.info("Event bus started")
+
             await self.gateway_service.start()
 
             try:
@@ -81,6 +89,9 @@ class TradingBot:
 
             if self.scanner_scheduler and self.scanner_scheduler.is_running():
                 await self.scanner_scheduler.stop()
+
+            if self.event_bus:
+                await self.event_bus.stop()
 
             await self.gateway_service.stop()
             logger.info("Trading bot stopped successfully")
