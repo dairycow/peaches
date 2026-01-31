@@ -87,7 +87,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="peaches-trading-bot",
-    description="Production-ready headless trading bot for vn.py",
+    description="Trading bot for vn.py",
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
