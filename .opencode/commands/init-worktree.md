@@ -1,5 +1,5 @@
 ---
-description: Create worktree and execute plan in it
+description: Initialise a worktree and execute the plan in it
 agent: build
 ---
 
