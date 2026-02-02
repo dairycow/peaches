@@ -156,26 +156,23 @@ The announcement gap strategy includes its own scanner service:
 
 ## Configuration
 
-All scanners configured in `config/settings.yaml`:
+All scanners configured in `app/config.py`:
 
-```yaml
-scanners:
-  enabled: true
-  asx:
-    url: "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
-    scan_schedule: "30 10 * * 1-5"
-    timeout: 10
-    exclude_tickers: ["TEST", "DEMO"]
-    min-ticker-length: 3
-    max-ticker-length: 6
-scanner:
-  gap-threshold: 3.0
-  min-price: 1.0
-  min-volume: 100000
-  max-results: 50
-  opening-range-time: "10:05"
-  timezone: "Australia/Sydney"
-  enable-scanner: false
+```bash
+# ASX scanner configuration
+SCANNERS__ENABLED=true
+SCANNERS__ASX__URL="https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
+SCANNERS__ASX__SCAN_SCHEDULE="30 10 * * 1-5"
+SCANNERS__ASX__TIMEOUT=10
+
+# Gap scanner configuration
+SCANNER__GAP_THRESHOLD=3.0
+SCANNER__MIN_PRICE=1.0
+SCANNER__MIN_VOLUME=100000
+SCANNER__MAX_RESULTS=50
+SCANNER__OPENING_RANGE_TIME="10:05"
+SCANNER__TIMEZONE="Australia/Sydney"
+SCANNER__ENABLE_SCANNER=false
 ```
 
 ## Related Files

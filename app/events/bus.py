@@ -126,3 +126,26 @@ class EventBus:
                 f"Handler {handler.__name__} failed for {event.__class__.__name__}: {e}",
                 exc_info=True,
             )
+
+
+_event_bus: EventBus | None = None
+
+
+def get_event_bus() -> EventBus:
+    """Get or create EventBus singleton.
+
+    Returns:
+        EventBus instance
+    """
+    global _event_bus
+    if _event_bus is None:
+        _event_bus = EventBus()
+    return _event_bus
+
+
+async def reset_event_bus() -> None:
+    """Reset EventBus singleton for test isolation."""
+    global _event_bus
+    if _event_bus is not None and _event_bus._running:
+        await _event_bus.stop()
+    _event_bus = None

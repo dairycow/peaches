@@ -103,9 +103,9 @@ graph TB
 ```mermaid
 graph TB
     subgraph "Docker Network: trading"
-        subgraph "ib-gateway Container"
-            IBG[IB Gateway<br/>Port 4001:4003<br/>Port 4002:4004<br/>VNC: 5900]
-        end
+    subgraph "ib-gateway Container"
+        IBG[IB Gateway<br/>Port 4001:4003<br/>Port 4002:4004]
+    end
 
         subgraph "peaches-bot Container"
             FastAPI[FastAPI Server<br/>Port 8080]
@@ -124,7 +124,7 @@ graph TB
 
 | Service | Image | Ports | Health Check |
 |---------|-------|-------|--------------|
-| `ib-gateway` | ghcr.io/gnzsnz/ib-gateway:stable | 4001, 4002, 5900 | TCP to 4004 |
+| `ib-gateway` | ghcr.io/gnzsnz/ib-gateway:stable | 4001, 4002 | TCP to 4004 |
 | `peaches-bot` | Built from Dockerfile | 8080 | HTTP to /api/v1/health |
 
 **Volumes**:
@@ -316,26 +316,25 @@ cta_engine.add_strategy(
 
 ## Configuration
 
-### Settings (config/settings.yaml)
+### Settings (app/config.py)
 
-```yaml
-scanner:
-  gap-threshold: 3.0        # Not used by strategy
-  min-price: 1.0            # Not used by strategy
-  min-volume: 100000        # Not used by strategy
-  opening-range-time: "10:05"
-  enable-scanner: false     # API scanner disabled
+```bash
+# Gap scanner configuration
+SCANNER__GAP_THRESHOLD=3.0        # Not used by strategy
+SCANNER__MIN_PRICE=1.0            # Not used by strategy
+SCANNER__MIN_VOLUME=100000        # Not used by strategy
+SCANNER__OPENING_RANGE_TIME="10:05"
+SCANNER__ENABLE_SCANNER=false     # API scanner disabled
 
-scanners:
-  enabled: true
-  asx:
-    scan-schedule: "30 10 * * 1-5"  # 10:00:30 AM AEST weekdays
-    url: "https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
-    timeout: 10
-  triggers:
-    enabled: true
-    strategies:
-      - "asx_momentum"      # Only triggers ASXMomentumStrategy
+# ASX scanner configuration
+SCANNERS__ENABLED=true
+SCANNERS__ASX__SCAN_SCHEDULE="30 10 * * 1-5"  # 10:00:30 AM AEST weekdays
+SCANNERS__ASX__URL="https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
+SCANNERS__ASX__TIMEOUT=10
+
+# Strategy triggers
+SCANNERS__TRIGGERS__ENABLED=true
+SCANNERS__TRIGGERS__STRATEGIES="asx_momentum"  # Only triggers ASXMomentumStrategy
 ```
 
 ### Strategy Default Parameters
@@ -601,7 +600,7 @@ def check_announcement_today(symbol: str, lookback_hours: int = 24) -> bool:
 | `app/services/strategy_service.py` | CTA engine (strategy loading) |
 | `app/api/v1/announcement_gap/router.py` | API endpoints |
 | `docker-compose.yml` | Docker infrastructure |
-| `config/settings.yaml` | Configuration |
+| `app/config.py` | Configuration |
 
 ---
 
