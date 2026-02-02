@@ -53,6 +53,30 @@ docker compose logs -f
 - Self-documenting code (no comments)
 - Docstrings for public APIs
 
+## Architecture
+
+Peaches uses a hybrid service-oriented + event-driven architecture:
+
+- **Services Layer**: Core business logic (GatewayService, NotificationService, etc.)
+- **Event Handlers Layer**: Coordinate services via EventBus
+- **EventBus**: Async publish/subscribe for decoupled communication
+
+**Benefits**:
+- Services are decoupled - they communicate via events, not direct calls
+- Easy to extend - add new handlers without modifying existing code
+- Observable - all operations emit events for tracking and debugging
+- Testable - test services and handlers independently
+
+**Event Flow**:
+```
+Scheduler → EventBus.publish(ScanStartedEvent)
+ScannerService → EventBus.publish(AnnouncementFoundEvent)
+    ↓
+EventBus
+    ├→ DiscordHandler → NotificationService.send_discord_webhook()
+    └→ StrategyHandler → StrategyTriggerService.trigger_strategies()
+```
+
 ## Configuration
 
 **ASX Symbol Format**: `{SYMBOL}-{TYPE}-{EXCHANGE}`
@@ -74,13 +98,6 @@ vt-symbol: "BHP-STK-SMART"
 - `IB_GATEWAY_PORT` - Default `4004`
 - `LOG_LEVEL` - `INFO`
 - `AUTO_RESTART_TIME` - Daily IB Gateway restart time (HH:MM AM/PM)
-
-**VNC Debugging** (optional, security risk):
-```bash
-# Set in .env: VNC_SERVER_PASSWORD=your_password
-docker compose restart ib-gateway
-# Connect VNC client to localhost:5900
-```
 
 ## API Endpoints
 
@@ -145,7 +162,6 @@ CSV format: `symbol,date,open,high,low,close,volume` (date: `%d/%m/%Y`)
 ## Troubleshooting
 
 **IBC Login Issues**:
-- Enable VNC (see above) to visually debug
 - Check logs: `docker compose logs ib-gateway | grep -i "error\|fail\|login"`
 - Set `AUTO_RESTART_TIME` to daily restart (e.g., 04:00 AM)
 

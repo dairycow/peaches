@@ -6,30 +6,37 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from app.scheduler import get_scanner_scheduler, get_scheduler
+from app.config import config
+from app.events import get_event_bus, reset_event_bus
+from app.events.handlers import (
+    DiscordHandler,
+    EventHandler,
+    ImportHandler,
+    StrategyHandler,
+)
+from app.scheduler import get_scheduler_service, reset_scheduler_service
+from app.services import (
+    get_notification_service,
+    get_strategy_trigger_service,
+)
 from app.services.gateway_service import gateway_service
 from app.services.strategy_service import strategy_service
 
 if TYPE_CHECKING:
     from app.events.bus import EventBus
-    from app.scheduler.import_scheduler import ImportScheduler
-    from app.scheduler.scanner_scheduler import ScannerScheduler
+    from app.scheduler.scheduler_service import SchedulerService
 
 
 class TradingBot:
-    """Trading bot application manager.
-
-    Encapsulates bot lifecycle and state.
-    """
+    """Trading bot application manager."""
 
     def __init__(self) -> None:
         """Initialize trading bot manager."""
         self.gateway_service = gateway_service
         self.strategy_service = strategy_service
-        self.scheduler: ImportScheduler | None = None
-        self.scanner_scheduler: ScannerScheduler | None = None
-        self._health_check_task: asyncio.Task[None] | None = None
+        self.scheduler: SchedulerService | None = None
         self.event_bus: EventBus | None = None
+        self._health_check_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
         """Start the trading bot."""
@@ -38,9 +45,7 @@ class TradingBot:
         from app.api.v1.scanner import init_scanner
 
         try:
-            from app.events.bus import EventBus
-
-            self.event_bus = EventBus()
+            self.event_bus = get_event_bus()
             await self.event_bus.start()
             logger.info("Event bus started")
 
@@ -55,20 +60,38 @@ class TradingBot:
             init_scanner()
             logger.info("Gap scanner initialized")
 
-            self.scheduler = get_scheduler()
-            from app.config import config
+            notification_service = get_notification_service(
+                webhook_url=config.scanners.notifications.discord.webhook_url,
+                username=config.scanners.notifications.discord.username,
+                enabled=config.scanners.notifications.discord.enabled,
+            )
 
-            if config.historical_data.import_enabled:
+            strategy_trigger_service = get_strategy_trigger_service(
+                enabled=config.scanners.triggers.enabled,
+                strategy_names=config.scanners.triggers.strategies,
+            )
+
+            handlers: list[EventHandler] = [
+                DiscordHandler(notification_service),
+                StrategyHandler(strategy_trigger_service),
+                ImportHandler(csv_dir=config.historical_data.csv_dir),
+            ]
+
+            for handler in handlers:
+                await handler.initialize(self.event_bus)
+
+            logger.info(f"Event handlers initialized ({len(handlers)} handlers)")
+
+            if config.historical_data.import_enabled or config.scanners.enabled:
+                self.scheduler = await get_scheduler_service(self.event_bus)
                 await self.scheduler.start()
-
-            self.scanner_scheduler = get_scanner_scheduler()
-            if config.scanners.enabled:
-                await self.scanner_scheduler.start()
+                logger.info("Scheduler started")
 
             self._start_health_checks()
             logger.info("Trading bot started successfully")
+
         except Exception as e:
-            logger.error(f"Failed to start trading bot: {e}")
+            logger.error(f"Failed to start trading bot: {e}", exc_info=True)
             await self.stop()
             raise
 
@@ -87,21 +110,17 @@ class TradingBot:
             if self.scheduler and self.scheduler.is_running():
                 await self.scheduler.stop()
 
-            if self.scanner_scheduler and self.scanner_scheduler.is_running():
-                await self.scanner_scheduler.stop()
-
             if self.event_bus:
                 await self.event_bus.stop()
 
             await self.gateway_service.stop()
             logger.info("Trading bot stopped successfully")
+
         except Exception as e:
             logger.error(f"Error stopping trading bot: {e}")
 
     def _start_health_checks(self) -> None:
         """Start health check monitoring."""
-        from app.config import config
-
         if not config.health.enabled:
             logger.info("Health checks disabled")
             return
@@ -129,8 +148,10 @@ def get_bot() -> TradingBot:
     return _bot
 
 
-def reset_bot() -> None:
+async def reset_bot() -> None:
     """Reset bot singleton (for testing)."""
     global _bot
     if _bot is not None:
         _bot = None
+    await reset_scheduler_service()
+    await reset_event_bus()

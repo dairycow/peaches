@@ -1,16 +1,15 @@
 """FastAPI endpoints for historical data management."""
 
+import uuid
 from datetime import datetime
 from typing import cast
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
-from loguru import logger
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from app.config import config
-from app.external.cooltrader import create_downloader
+from app.events.bus import get_event_bus
 from app.external.vnpy.database import get_database_manager
-from app.scheduler import get_scheduler
 
 router = APIRouter(prefix="/import", tags=["historical-data"])
 
@@ -19,7 +18,6 @@ class JobTriggerResponse(BaseModel):
     """Response model for job trigger endpoints."""
 
     message: str
-    job_id: str
 
 
 class DatabaseStatsResponse(BaseModel):
@@ -44,76 +42,110 @@ class SchedulerStatusResponse(BaseModel):
 
     enabled: bool
     running: bool
+    scan_schedule: str
     download_schedule: str
     import_schedule: str
     timezone: str
 
 
 @router.post("/download/trigger", response_model=JobTriggerResponse)
-async def trigger_download(background_tasks: BackgroundTasks) -> JobTriggerResponse:
-    """Trigger manual CoolTrader download.
-
-    Returns:
-        Task status
-    """
+async def trigger_download() -> JobTriggerResponse:
+    """Trigger manual CoolTrader download."""
     if not config.historical_data.import_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Import is disabled in configuration",
         )
 
-    from app.scheduler import run_download
+    from app.events.events import DownloadStartedEvent
 
-    background_tasks.add_task(run_download)
+    event_bus = get_event_bus()
+    correlation_id = str(uuid.uuid4())
 
-    return JobTriggerResponse(
-        message="Download job started in background",
-        job_id="cooltrader_download",
+    await event_bus.publish(
+        DownloadStartedEvent(source="manual", correlation_id=correlation_id, target_date=None)
     )
+
+    return JobTriggerResponse(message="Download job triggered")
+
+
+class DownloadDateRequest(BaseModel):
+    """Request model for manual date download."""
+
+    date: str
+
+
+@router.post("/download/date", response_model=JobTriggerResponse)
+async def download_specific_date(request: DownloadDateRequest) -> JobTriggerResponse:
+    """Manually download CSV for specific date."""
+    try:
+        datetime.strptime(request.date, "%Y-%m-%d")
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid date format: {e}",
+        ) from None
+
+    if not config.historical_data.import_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Import is disabled in configuration",
+        )
+
+    from app.events.events import DownloadStartedEvent
+
+    event_bus = get_event_bus()
+    correlation_id = str(uuid.uuid4())
+
+    await event_bus.publish(
+        DownloadStartedEvent(
+            source="manual",
+            correlation_id=correlation_id,
+            target_date=request.date,
+        )
+    )
+
+    return JobTriggerResponse(message=f"Download job triggered for {request.date}")
 
 
 @router.post("/import/trigger", response_model=JobTriggerResponse)
-async def trigger_import(background_tasks: BackgroundTasks) -> JobTriggerResponse:
-    """Trigger manual CSV import.
-
-    Returns:
-        Task status
-    """
+async def trigger_import() -> JobTriggerResponse:
+    """Trigger manual CSV import."""
     if not config.historical_data.import_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Import is disabled in configuration",
         )
 
-    from app.scheduler import run_import
+    from app.events.events import ImportStartedEvent
 
-    background_tasks.add_task(run_import)
+    event_bus = get_event_bus()
+    correlation_id = str(uuid.uuid4())
 
-    return JobTriggerResponse(
-        message="Import job started in background",
-        job_id="csv_import",
-    )
+    await event_bus.publish(ImportStartedEvent(source="manual", correlation_id=correlation_id))
+
+    return JobTriggerResponse(message="Import job triggered")
 
 
 @router.post("/schedule/start", response_model=SchedulerStatusResponse)
 async def start_scheduler() -> SchedulerStatusResponse:
-    """Start scheduled downloads and imports.
-
-    Returns:
-        Scheduler status
-    """
+    """Start scheduled downloads and imports."""
     if not config.historical_data.import_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Import is disabled in configuration",
         )
 
-    scheduler = get_scheduler()
+    from app.scheduler import get_scheduler_service
+
+    event_bus = get_event_bus()
+    scheduler = await get_scheduler_service(event_bus)
 
     if scheduler.is_running():
         return SchedulerStatusResponse(
             enabled=config.historical_data.import_enabled,
             running=True,
+            scan_schedule=config.scanners.asx.scan_schedule,
             download_schedule=config.cooltrader.download_schedule,
             import_schedule=config.cooltrader.import_schedule,
             timezone="Australia/Sydney",
@@ -124,6 +156,7 @@ async def start_scheduler() -> SchedulerStatusResponse:
     return SchedulerStatusResponse(
         enabled=config.historical_data.import_enabled,
         running=True,
+        scan_schedule=config.scanners.asx.scan_schedule,
         download_schedule=config.cooltrader.download_schedule,
         import_schedule=config.cooltrader.import_schedule,
         timezone="Australia/Sydney",
@@ -132,17 +165,17 @@ async def start_scheduler() -> SchedulerStatusResponse:
 
 @router.post("/schedule/stop", response_model=SchedulerStatusResponse)
 async def stop_scheduler() -> SchedulerStatusResponse:
-    """Stop scheduled downloads and imports.
+    """Stop scheduled downloads and imports."""
+    from app.scheduler import get_scheduler_service
 
-    Returns:
-        Scheduler status
-    """
-    scheduler = get_scheduler()
+    event_bus = get_event_bus()
+    scheduler = await get_scheduler_service(event_bus)
 
     if not scheduler.is_running():
         return SchedulerStatusResponse(
             enabled=config.historical_data.import_enabled,
             running=False,
+            scan_schedule=config.scanners.asx.scan_schedule,
             download_schedule=config.cooltrader.download_schedule,
             import_schedule=config.cooltrader.import_schedule,
             timezone="Australia/Sydney",
@@ -153,6 +186,7 @@ async def stop_scheduler() -> SchedulerStatusResponse:
     return SchedulerStatusResponse(
         enabled=config.historical_data.import_enabled,
         running=False,
+        scan_schedule=config.scanners.asx.scan_schedule,
         download_schedule=config.cooltrader.download_schedule,
         import_schedule=config.cooltrader.import_schedule,
         timezone="Australia/Sydney",
@@ -161,16 +195,16 @@ async def stop_scheduler() -> SchedulerStatusResponse:
 
 @router.get("/schedule/status", response_model=SchedulerStatusResponse)
 async def schedule_status() -> SchedulerStatusResponse:
-    """Get scheduler status.
+    """Get scheduler status."""
+    from app.scheduler import get_scheduler_service
 
-    Returns:
-        Scheduler status dictionary
-    """
-    scheduler = get_scheduler()
+    event_bus = get_event_bus()
+    scheduler = await get_scheduler_service(event_bus)
 
     return SchedulerStatusResponse(
         enabled=config.historical_data.import_enabled,
         running=scheduler.is_running(),
+        scan_schedule=config.scanners.asx.scan_schedule,
         download_schedule=config.cooltrader.download_schedule,
         import_schedule=config.cooltrader.import_schedule,
         timezone="Australia/Sydney",
@@ -179,11 +213,7 @@ async def schedule_status() -> SchedulerStatusResponse:
 
 @router.get("/database/stats", response_model=DatabaseStatsResponse)
 async def get_database_stats_endpoint() -> DatabaseStatsResponse:
-    """Get database statistics.
-
-    Returns:
-        Database statistics
-    """
+    """Get database statistics."""
     db_manager = get_database_manager()
     stats = db_manager.get_database_stats()
 
@@ -198,69 +228,11 @@ async def get_database_stats_endpoint() -> DatabaseStatsResponse:
 
 @router.get("/database/overview", response_model=DatabaseOverviewResponse)
 async def get_database_overview_endpoint() -> DatabaseOverviewResponse:
-    """Get database overview.
-
-    Returns:
-        Database overview with symbol details
-    """
+    """Get database overview."""
     db_manager = get_database_manager()
     overview = db_manager.get_database_overview()
 
     return DatabaseOverviewResponse(
         total_symbols=cast(int, overview["total_symbols"]),
         symbols=cast(list[dict[str, str | int | None]], overview["symbols"]),
-    )
-
-
-class DownloadDateRequest(BaseModel):
-    """Request model for manual date download."""
-
-    date: str
-
-
-@router.post("/download/date", response_model=JobTriggerResponse)
-async def download_specific_date(
-    request: DownloadDateRequest, background_tasks: BackgroundTasks
-) -> JobTriggerResponse:
-    """Manually download CSV for specific date.
-
-    Args:
-        request: Date in YYYY-MM-DD format
-        background_tasks: FastAPI background tasks
-
-    Returns:
-        Download task status
-
-    Raises:
-        HTTPException: If date format is invalid or download fails
-    """
-    try:
-        parsed_date = datetime.strptime(request.date, "%Y-%m-%d")
-        target_date = parsed_date.date()
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid date format: {e}",
-        ) from None
-
-    if not config.historical_data.import_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Import is disabled in configuration",
-        )
-
-    async def download_task() -> None:
-        try:
-            downloader = create_downloader()
-            filepath = await downloader.download_csv(target_date)
-            await downloader.close()
-            logger.info(f"Manual download completed: {filepath}")
-        except Exception as e:
-            logger.error(f"Manual download failed: {e}")
-
-    background_tasks.add_task(download_task)
-
-    return JobTriggerResponse(
-        message=f"Download job started for {request.date} in background",
-        job_id=f"cooltrader_download_{request.date}",
     )

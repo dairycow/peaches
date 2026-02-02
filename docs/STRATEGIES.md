@@ -147,4 +147,4 @@ To register a new backtest strategy:
 - Runtime strategies: `app/strategies/`
 - Backtest strategies: `app/analysis/strategies/`
 - CLI interface: `app/cli/analysis_cli.py`
-- Configuration: `config/settings.yaml`
+- Configuration: `app/config.py`

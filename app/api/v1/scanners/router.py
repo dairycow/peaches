@@ -1,9 +1,12 @@
 """API v1 scanner endpoints."""
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+import uuid
+
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from app.config import config
+from app.events.bus import get_event_bus
 
 router = APIRouter(prefix="/scanners", tags=["scanners"])
 
@@ -23,34 +26,27 @@ class ScannerStatusResponse(BaseModel):
 
 
 @router.post("/trigger", response_model=ScanTriggerResponse)
-async def trigger_scan(background_tasks: BackgroundTasks) -> ScanTriggerResponse:
-    """Trigger manual announcement scan.
-
-    Returns:
-        Scan trigger response
-    """
+async def trigger_scan() -> ScanTriggerResponse:
+    """Trigger manual announcement scan."""
     if not config.scanners.enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Scanners are disabled in configuration",
         )
 
-    from app.scheduler import run_scan
+    from app.events.events import ScanStartedEvent
 
-    background_tasks.add_task(run_scan)
+    event_bus = get_event_bus()
+    correlation_id = str(uuid.uuid4())
 
-    return ScanTriggerResponse(
-        message="Scan job started in background",
-    )
+    await event_bus.publish(ScanStartedEvent(source="manual", correlation_id=correlation_id))
+
+    return ScanTriggerResponse(message="Scan job triggered")
 
 
 @router.get("/status", response_model=ScannerStatusResponse)
 async def get_scanner_status() -> ScannerStatusResponse:
-    """Get scanner status.
-
-    Returns:
-        Scanner status
-    """
+    """Get scanner status."""
     return ScannerStatusResponse(
         enabled=config.scanners.enabled,
         scan_schedule=config.scanners.asx.scan_schedule,
