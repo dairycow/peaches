@@ -136,7 +136,7 @@ async def start_scheduler() -> SchedulerStatusResponse:
             detail="Import is disabled in configuration",
         )
 
-    from app.scheduler import get_scheduler_service
+    from app.services import get_scheduler_service
 
     event_bus = get_event_bus()
     scheduler = await get_scheduler_service(event_bus)
@@ -166,7 +166,7 @@ async def start_scheduler() -> SchedulerStatusResponse:
 @router.post("/schedule/stop", response_model=SchedulerStatusResponse)
 async def stop_scheduler() -> SchedulerStatusResponse:
     """Stop scheduled downloads and imports."""
-    from app.scheduler import get_scheduler_service
+    from app.services import get_scheduler_service
 
     event_bus = get_event_bus()
     scheduler = await get_scheduler_service(event_bus)
@@ -196,7 +196,7 @@ async def stop_scheduler() -> SchedulerStatusResponse:
 @router.get("/schedule/status", response_model=SchedulerStatusResponse)
 async def schedule_status() -> SchedulerStatusResponse:
     """Get scheduler status."""
-    from app.scheduler import get_scheduler_service
+    from app.services import get_scheduler_service
 
     event_bus = get_event_bus()
     scheduler = await get_scheduler_service(event_bus)
