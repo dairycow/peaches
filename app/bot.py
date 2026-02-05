@@ -14,17 +14,18 @@ from app.events.handlers import (
     ImportHandler,
     StrategyHandler,
 )
-from app.scheduler import get_scheduler_service, reset_scheduler_service
 from app.services import (
     get_notification_service,
+    get_scheduler_service,
     get_strategy_trigger_service,
+    reset_scheduler_service,
 )
 from app.services.gateway_service import gateway_service
 from app.services.strategy_service import strategy_service
 
 if TYPE_CHECKING:
     from app.events.bus import EventBus
-    from app.scheduler.scheduler_service import SchedulerService
+    from app.services.scheduler_service import SchedulerService
 
 
 class TradingBot:
