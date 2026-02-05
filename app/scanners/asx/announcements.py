@@ -3,7 +3,7 @@
 import asyncio
 import contextlib
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import aiohttp
 from aiohttp import ClientTimeout
@@ -44,7 +44,7 @@ class ASXScanResult:
     error: str | None
 
 
-class ASXAnnouncementScanner(ScannerBase):
+class ASXAnnouncementScanner(ScannerBase[list[dict[str, Any]]]):
     """Scanner for ASX announcements."""
 
     def __init__(self, config: ScannerConfig) -> None:
@@ -60,7 +60,7 @@ class ASXAnnouncementScanner(ScannerBase):
         """Scanner identifier."""
         return "asx_announcements"
 
-    async def execute(self) -> ScanResult:
+    async def execute(self) -> ScanResult[list[dict[str, Any]]]:
         """Execute the scan operation.
 
         Returns:
@@ -247,7 +247,7 @@ class ASXAnnouncementScanner(ScannerBase):
         return await asyncio.gather(*[fetch_one(ann) for ann in announcements])
 
 
-class ASXPriceSensitiveScanner(ScannerBase):
+class ASXPriceSensitiveScanner(ScannerBase[list[dict[str, Any]]]):
     """Scanner for ASX price-sensitive announcements."""
 
     def __init__(self, config: ScannerConfig) -> None:
@@ -264,7 +264,7 @@ class ASXPriceSensitiveScanner(ScannerBase):
         """Scanner identifier."""
         return "asx_price_sensitive"
 
-    async def execute(self) -> ScanResult:
+    async def execute(self) -> ScanResult[list[dict[str, Any]]]:
         """Execute the scan operation.
 
         Returns:
