@@ -9,20 +9,20 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class ScanResult:
+class ScanResult[T]:
     """Result from a scanner operation."""
 
     success: bool
     message: str
-    data: list | dict | None = None
+    data: T | None = None
     error: str | None = None
 
 
-class ScannerBase(ABC):
+class ScannerBase[T](ABC):
     """Abstract base class for all scanners."""
 
     @abstractmethod
-    async def execute(self) -> ScanResult:
+    async def execute(self) -> ScanResult[T]:
         """Execute the scan operation.
 
         Returns:
