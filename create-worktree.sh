@@ -43,6 +43,9 @@ ln -s /opt/peaches/logs logs-prod
 # Copy .env from production
 cp /opt/peaches/.env .env
 
+# Copy oauth_keys directory
+cp -r "$PROJECT_ROOT/oauth_keys" oauth_keys
+
 # Copy pyrightconfig.json (already uses relative paths, no updates needed)
 cp "$PROJECT_ROOT/pyrightconfig.json" pyrightconfig.json
 

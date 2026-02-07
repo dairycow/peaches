@@ -80,6 +80,7 @@ htmlcov/
 # Secrets (IB Gateway config, SSH keys)
 ib-gateway-config/
 ssh/
+oauth_keys/
 *_secret*
 *_private*
 *.pem
