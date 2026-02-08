@@ -36,15 +36,13 @@ cd "$WORKTREE_PATH"
 uv venv
 uv sync --group dev
 
-# Create symlinks for data and logs directories
+# Create symlinks for data, logs, and oauth_keys directories
 ln -s /opt/peaches/data data-prod
 ln -s /opt/peaches/logs logs-prod
+ln -s /opt/peaches/oauth_keys oauth_keys-prod
 
 # Copy .env from production
 cp /opt/peaches/.env .env
-
-# Copy oauth_keys directory
-cp -r "$PROJECT_ROOT/oauth_keys" oauth_keys
 
 # Copy pyrightconfig.json (already uses relative paths, no updates needed)
 cp "$PROJECT_ROOT/pyrightconfig.json" pyrightconfig.json
