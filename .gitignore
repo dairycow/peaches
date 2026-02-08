@@ -81,6 +81,7 @@ htmlcov/
 ib-gateway-config/
 ssh/
 oauth_keys/
+oauth_keys-prod
 *_secret*
 *_private*
 *.pem
