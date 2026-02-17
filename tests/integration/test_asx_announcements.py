@@ -18,6 +18,7 @@ async def test_asx_price_sensitive_scanner_real_url():
     result = await scanner.execute()
 
     assert result.success
+    assert result.data is not None
     assert len(result.data) > 0
     assert "announcements" in result.message.lower()
     assert result.error is None

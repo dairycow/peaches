@@ -60,3 +60,14 @@ class ScanResponse(BaseModel):
     candidates_count: int = Field(..., description="Number of candidates found")
     estimated_completion: datetime | None = Field(None, description="Estimated completion time")
     message: str = Field(..., description="Status message")
+
+
+class GapStock(BaseModel):
+    """Gap stock from IBKR scanner."""
+
+    ticker: str = Field(..., description="Stock ticker symbol")
+    conid: int = Field(..., description="IBKR contract ID")
+    gap_percent: float = Field(..., ge=0, description="Gap percentage")
+    company_name: str | None = Field(None, description="Company name")
+    exchange: str | None = Field(None, description="Listing exchange")
+    timestamp: datetime = Field(default_factory=datetime.now, description="Detection timestamp")
