@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Protocol
 
 from app.events.handlers.discord_handler import DiscordHandler
+from app.events.handlers.ibkr_scanner_handler import IBKRScannerHandler
 from app.events.handlers.import_handler import ImportHandler
 from app.events.handlers.strategy_handler import StrategyHandler
 
@@ -20,6 +21,7 @@ class EventHandler(Protocol):
 
 __all__ = [
     "DiscordHandler",
+    "IBKRScannerHandler",
     "ImportHandler",
     "StrategyHandler",
     "EventHandler",

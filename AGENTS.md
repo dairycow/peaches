@@ -4,200 +4,164 @@
 - Use Australian English spelling (e.g., colour, analyse, initialise, organise)
 - No emojis in documentation or code
 
-## Development Workflow
-
-### Git Worktree Development
-Worktrees are used for development, keeping main clean.
+## Build/Lint/Test Commands
 
 ```bash
-# Create a new worktree (from ~/peaches)
-./create-worktree.sh feature/new-feature
-
-# Work in worktree at ~/peaches-feature-new-feature/
-# - Has its own venv (uv venv + uv sync --group dev)
-# - data-prod symlink → /opt/peaches/data
-# - logs-prod symlink → /opt/peaches/logs
-
-# When done: merge back and cleanup
-./merge-worktree.sh feature/new-feature
-# This merges to main, pushes to origin, and cleans up worktree
+uv sync --all-extras              # Install dependencies
+make format                       # Format with ruff
+make lint                         # Lint with ruff
+make type-check                   # Type check with mypy
+make check                        # All checks (lint + type-check)
+make test                         # Unit tests only
+make test-integration             # Integration tests
+make test-all                     # All tests
+uv run pytest tests/test_file.py  # Single test file
+uv run pytest tests/test_file.py::test_fn  # Single test function
+uv run pytest -k "pattern"        # Pattern match
 ```
 
-### Deployment
-Deploy to production from `/opt/peaches`:
+## Code Style
 
-```bash
-cd /opt/peaches
-./manual-deploy.sh
+### Formatting & Imports
+- Python 3.13+, line length 100 chars
+- No inline comments - code should be self-documenting
+- Docstrings required for public APIs
+
+```python
+# Import order: stdlib → third-party → local
+import asyncio
+from typing import TYPE_CHECKING, Any
+
+from fastapi import APIRouter
+from loguru import logger
+from pydantic import BaseModel, Field
+
+from app.config import config
+
+if TYPE_CHECKING:
+    from app.services.scanner_service import ScannerService
 ```
-
-Deployment:
-- Pulls latest from `origin/main` (use `merge-worktree.sh` to push first)
-- Rebuilds Docker images
-- Restarts containers
-- Waits for health checks
-
-## Code Quality
-
-### Commands
-```bash
-# Format
-make format
-
-# Lint
-make lint
-
-# Type check
-make type-check
-
-# Test
-make test
-
-# All checks
-make check
-```
-
-### Style Guidelines
-- **Python**: 3.13+
-- **Line length**: 100 chars (ruff enforced)
-- **No comments**: Code should be self-documenting
-- **Docstrings**: Required for public APIs
 
 ### Type Hints
 ```python
-def process_data(input: str) -> dict[str, int]:
-    return {"count": len(input)}
-
-module_var: str | None = None
+def process_data(items: list[str]) -> dict[str, int]: ...
+result: str | None = None
+_service: Service | None = None
 ```
 
-### Naming
-- Classes: `PascalCase`
-- Functions/variables: `snake_case`
-- Constants: `UPPER_SNAKE_CASE`
-- Private: `_prefix`
-
-## Code Patterns
-
-### Configuration
-```python
-from pydantic_settings import BaseSettings
-
-class Config(BaseSettings):
-    field: str = Field(default="value", description="Description")
-```
-
-### Async
-```python
-# Use run_in_executor for blocking vn.py calls
-await asyncio.get_event_loop().run_in_executor(
-    None, lambda: self.engine.connect(setting, "IB")
-)
-```
+### Naming Conventions
+- `PascalCase`: classes (e.g., `ScannerService`)
+- `snake_case`: functions/variables (e.g., `process_announcement`)
+- `UPPER_SNAKE_CASE`: constants (e.g., `MAX_RETRIES`)
+- `_prefix`: private members (e.g., `_event_bus`)
 
 ### Error Handling
 ```python
+class IBKRWebAPIError(Exception):
+    """Base exception for IBKR web API errors."""
+
 try:
     await operation()
 except ConnectionError as e:
-    logger.error(f"Connection failed: {e}")
+    logger.error(f"Connection failed: {e}", exc_info=True)
     raise
+
+with contextlib.suppress(asyncio.CancelledError):
+    await task
 ```
 
 ### Logging
 ```python
-from loguru import logger
+from loguru import logger  # Always use loguru, never standard logging
+
 logger.info("Message")
-logger.warning("Warning")
-logger.error(f"Error: {error}")
+logger.error(f"Error: {error}", exc_info=True)
 ```
 
-## FastAPI
+## Architecture Patterns
 
-### Router Structure
+### Service Layer (Singleton)
 ```python
-from fastapi import APIRouter
-router = APIRouter(prefix="/api/v1/resource", tags=["resource"])
+# container.py - dependency injection
+_service: Service | None = None
 
-@router.get("/endpoint")
-async def endpoint() -> ResponseModel:
-    return ResponseModel()
+def get_service() -> Service:
+    global _service
+    if _service is None:
+        _service = Service()
+    return _service
 ```
 
-### Response Models
+### FastAPI Routers
 ```python
+router = APIRouter(prefix="/resource", tags=["resource"])
+
 class ResponseModel(BaseModel):
-    field: str
-    count: int
+    status: str
+
+@router.get("", response_model=ResponseModel)
+async def get_resource() -> ResponseModel:
+    return ResponseModel(status="ok")
 ```
 
-## Database & Data
-
-### CSV Import
-- Config: `config.historical_data.csv_dir` (default: `/app/data/raw/cooltrader`)
-- CSV format: `symbol,date,open,high,low,close,volume`
-- Date format: `%d/%m/%Y`
-
-### Data Access
+### Event-Driven Communication
 ```python
-from app.database import get_database_manager
+@dataclass
+class ScanStartedEvent(Event):
+    source: str
 
-db = get_database_manager()
-db.save_bars(bars_list)
-stats = db.get_database_stats()
+await event_bus.publish(ScanStartedEvent(source="manual"))
+await event_bus.subscribe(ScanStartedEvent, self._handle_scan)
 ```
 
-## API Endpoints
-
-### Health
-- `GET /api/v1/health` - Service health
-- `GET /api/v1/health/ready` - Readiness
-- `GET /api/v1/health/live` - Liveness
-
-### Data Import
-- `POST /api/v1/import/import/trigger` - Trigger CSV import
-- `GET /api/v1/import/database/stats` - DB statistics
-- `GET /api/v1/import/database/overview` - Symbol overview
-- `POST /api/v1/import/schedule/start` - Start scheduler
-- `POST /api/v1/import/schedule/stop` - Stop scheduler
+### Configuration
+```python
+class Config(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_nested_delimiter="__",
+        case_sensitive=False,
+        env_file=".env",
+    )
+    field: str = Field(default="value", description="Description")
+```
 
 ## Testing
 
-### Philosophy
-Test business logic, not frameworks. Avoid mocks for vn.py/FastAPI.
+```python
+import pytest
 
-### Commands
-```bash
-# Unit tests (excludes integration)
-make test
+def test_creation():
+    assert Service() is not None
 
-# Integration tests
-make test-integration
+@pytest.mark.asyncio
+async def test_async_operation():
+    result = await service.process()
+    assert result.success
 
-# All tests (unit + integration)
-make test-all
-
-# Single file
-uv run pytest tests/test_file.py
-
-# Single test
-uv run pytest tests/test_file.py::test_function
-
-# Pattern match
-uv run pytest -k "test_import"
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_database_connection():
+    ...
 ```
+
+- Test business logic, not frameworks
+- Avoid mocks for vn.py/FastAPI - use real components
+- Reset singletons between tests
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `app/config.py` | Pydantic Settings |
+| `app/container.py` | Dependency injection |
+| `app/main.py` | FastAPI app and lifespan |
+| `app/events/bus.py` | Event-driven communication |
+| `app/services/` | Business logic |
 
 ## Important Notes
 
-1. **Always run checks before committing**: `make check`
-2. **Never commit secrets** (.env is in .gitignore)
-3. **Worktrees provide isolation** - separate venv, symlinked data/logs
-4. **Health checks required** - all services must be healthy
-5. **Type hints encouraged** but type checking is relaxed
-6. **Avoid mocks** - prefer real components
-
-## Configuration Files
-
-- `.env` - Environment variables
-- `docker-compose.yml` - Service definitions
-- `.opencode/opencode.json` - OpenCode permissions
+1. Run `make check` before committing
+2. Never commit secrets (.env is in .gitignore)
+3. Use `TYPE_CHECKING` for circular import avoidance
+4. Use `loguru` for all logging
+5. Use modern syntax: `list[str]` not `List[str]`, `X | None` not `Optional[X]`
