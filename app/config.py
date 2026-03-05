@@ -88,6 +88,10 @@ class ASXScannerConfig(BaseSettings):
         description="ASX announcements URL",
     )
     scan_schedule: str = Field(default="30 10 * * 1-5", description="Scan cron schedule (AEST)")
+    announcement_gap_schedule: str = Field(
+        default="1 10 * * 1-5",
+        description="Announcement gap scan cron schedule (AEST)",
+    )
     timeout: int = Field(default=10, ge=1, description="Request timeout in seconds")
 
 

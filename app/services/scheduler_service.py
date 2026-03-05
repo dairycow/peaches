@@ -20,6 +20,7 @@ class SchedulerConfig(BaseModel):
     scan_schedule: str
     download_schedule: str
     import_schedule: str
+    announcement_gap_schedule: str
 
 
 class SchedulerService:
@@ -66,6 +67,16 @@ class SchedulerService:
             ImportStartedEvent(source="scheduled", correlation_id="import_cron")
         )
 
+    async def _trigger_announcement_gap_scan(self) -> None:
+        """Trigger announcement gap scan event."""
+        from app.events.events import AnnouncementGapScanStartedEvent
+
+        await self.event_bus.publish(
+            AnnouncementGapScanStartedEvent(
+                source="scheduled", correlation_id="announcement_gap_cron"
+            )
+        )
+
     async def initialize(self) -> None:
         """Register all scheduled jobs."""
 
@@ -99,10 +110,21 @@ class SchedulerService:
             replace_existing=True,
         )
 
+        self.scheduler.add_job(
+            self._trigger_announcement_gap_scan,
+            trigger=CronTrigger.from_crontab(
+                self.scheduler_config.announcement_gap_schedule, timezone="Australia/Sydney"
+            ),
+            id="announcement_gap_trigger",
+            name="Trigger announcement gap scan",
+            replace_existing=True,
+        )
+
         logger.info(
             f"Scheduler initialized: scan={self.scheduler_config.scan_schedule}, "
             f"download={self.scheduler_config.download_schedule}, "
-            f"import={self.scheduler_config.import_schedule}"
+            f"import={self.scheduler_config.import_schedule}, "
+            f"announcement_gap={self.scheduler_config.announcement_gap_schedule}"
         )
 
     async def start(self) -> None:
@@ -153,6 +175,7 @@ async def get_scheduler_service(event_bus: "EventBus") -> SchedulerService:
             scan_schedule=config.scanners.asx.scan_schedule,
             download_schedule=config.cooltrader.download_schedule,
             import_schedule=config.cooltrader.import_schedule,
+            announcement_gap_schedule=config.scanners.asx.announcement_gap_schedule,
         )
         scheduler_service = SchedulerService(event_bus, scheduler_config)
         await scheduler_service.initialize()

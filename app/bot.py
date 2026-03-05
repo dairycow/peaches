@@ -9,17 +9,20 @@ from loguru import logger
 from app.config import config
 from app.events import get_event_bus, reset_event_bus
 from app.events.handlers import (
+    AnnouncementGapHandler,
     DiscordHandler,
     EventHandler,
     ImportHandler,
     StrategyHandler,
 )
+from app.scanners.asx import ScannerConfig
 from app.services import (
     get_notification_service,
     get_scheduler_service,
     get_strategy_trigger_service,
     reset_scheduler_service,
 )
+from app.services.announcement_gap_strategy_service import AnnouncementGapStrategyService
 from app.services.gateway_service import gateway_service
 from app.services.strategy_service import strategy_service
 
@@ -72,10 +75,26 @@ class TradingBot:
                 strategy_names=config.scanners.triggers.strategies,
             )
 
+            asx_scanner_config = ScannerConfig(
+                url=config.scanners.asx.url,
+                timeout=config.scanners.asx.timeout,
+            )
+
+            announcement_gap_strategy_service = AnnouncementGapStrategyService(
+                asx_scanner_config=asx_scanner_config,
+                min_price=config.announcement_gap_strategy.min_price,
+                min_gap_pct=config.announcement_gap_strategy.min_gap_pct,
+                lookback_months=config.announcement_gap_strategy.lookback_months,
+            )
+
             handlers: list[EventHandler] = [
                 DiscordHandler(notification_service),
                 StrategyHandler(strategy_trigger_service),
                 ImportHandler(csv_dir=config.historical_data.csv_dir),
+                AnnouncementGapHandler(
+                    notification_service=notification_service,
+                    strategy_service=announcement_gap_strategy_service,
+                ),
             ]
 
             for handler in handlers:
