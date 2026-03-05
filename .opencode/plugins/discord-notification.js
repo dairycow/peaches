@@ -1,4 +1,5 @@
 import { config } from "dotenv"
+import { basename } from "path"
 config({ path: ".env" })
 
 export const DiscordNotificationPlugin = async () => {
@@ -12,13 +13,16 @@ export const DiscordNotificationPlugin = async () => {
   return {
     event: async ({ event }) => {
       if (event.type === "session.idle") {
+        const projectName = basename(process.cwd())
+
         const payload = {
-          content: "Session completed",
+          content: `Session completed in **${projectName}**`,
           embeds: [
             {
               title: "OpenCode Session Idle",
               description: "The AI assistant has finished processing and is waiting for input.",
               color: 5814783,
+              fields: [{ name: "Project", value: projectName, inline: true }],
               timestamp: new Date().toISOString(),
             },
           ],
