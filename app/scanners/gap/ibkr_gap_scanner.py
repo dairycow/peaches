@@ -150,6 +150,54 @@ class IBKRGapScanner:
         logger.info(f"Found {len(gap_stocks)} stocks with gap >= {self.config.gap_threshold}%")
         return gap_stocks
 
+    def _calculate_gap_percent(self, conid: int) -> float | None:
+        """Calculate gap percentage from historical data.
+
+        Args:
+            conid: Contract ID
+
+        Returns:
+            Gap percentage if calculable, None otherwise
+        """
+        if self._client is None:
+            return None
+
+        try:
+            history = self._client.marketdata_history_by_conid(
+                conid=str(conid),
+                period="3d",
+                bar="1d",
+            )
+
+            if not history or not history.data:
+                return None
+
+            if not isinstance(history.data, dict):
+                return None
+
+            bars = history.data.get("data", [])
+            if not isinstance(bars, list) or len(bars) < 2:
+                return None
+
+            today = bars[-1]
+            yesterday = bars[-2]
+
+            if not isinstance(today, dict) or not isinstance(yesterday, dict):
+                return None
+
+            today_open = today.get("o")
+            previous_close = yesterday.get("c")
+
+            if today_open is None or previous_close is None or previous_close == 0:
+                return None
+
+            gap_percent = ((today_open - previous_close) / previous_close) * 100
+            return round(gap_percent, 2)
+
+        except Exception as e:
+            logger.debug(f"Failed to calculate gap for conid {conid}: {e}")
+            return None
+
     def _parse_contract(self, contract: dict) -> GapStock | None:
         """Parse scanner contract result into GapStock.
 
@@ -165,11 +213,15 @@ class IBKRGapScanner:
         if not symbol or not conid:
             return None
 
+        gap_percent = self._calculate_gap_percent(int(conid))
+        if gap_percent is None:
+            gap_percent = 0.0
+
         try:
             return GapStock(
                 ticker=str(symbol),
                 conid=int(conid),
-                gap_percent=0.0,
+                gap_percent=gap_percent,
                 company_name=contract.get("companyName", contract.get("company_name")),
                 exchange=contract.get("listing_exchange"),
                 timestamp=datetime.now(),
