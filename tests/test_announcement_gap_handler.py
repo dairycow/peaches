@@ -231,3 +231,74 @@ def test_announcement_gap_handler_truncate_headline():
 
     exact_headline = "B" * 100
     assert handler._truncate_headline(exact_headline, 100) == exact_headline
+
+
+def test_announcement_gap_scanner_ibkr_gap():
+    """Test that scanner uses IBKR for gap calculation when available."""
+    from app.scanners.gap.announcement_gap_scanner import AnnouncementGapScanner
+
+    mock_ibkr_client = MagicMock()
+    mock_ibkr_client.marketdata_history_by_symbol = MagicMock(
+        return_value=MagicMock(
+            data={
+                "data": [
+                    {"o": 47.00, "c": 46.00},
+                    {"o": 50.00, "c": 49.00},
+                ]
+            }
+        )
+    )
+
+    scanner = AnnouncementGapScanner(ibkr_client=mock_ibkr_client)
+
+    gap = scanner._get_gap_from_ibkr("BHP")
+
+    assert gap is not None
+    assert abs(gap - 8.7) < 0.1
+
+    mock_ibkr_client.marketdata_history_by_symbol.assert_called_once_with(
+        symbol="BHP.ASX",
+        period="3d",
+        bar="1d",
+    )
+
+
+def test_announcement_gap_scanner_ibkr_gap_no_client():
+    """Test that scanner returns None when IBKR client not available."""
+    from app.scanners.gap.announcement_gap_scanner import AnnouncementGapScanner
+
+    scanner = AnnouncementGapScanner(ibkr_client=None)
+
+    gap = scanner._get_gap_from_ibkr("BHP")
+
+    assert gap is None
+
+
+def test_announcement_gap_scanner_ibkr_gap_api_failure():
+    """Test that scanner returns None when IBKR API fails."""
+    from app.scanners.gap.announcement_gap_scanner import AnnouncementGapScanner
+
+    mock_ibkr_client = MagicMock()
+    mock_ibkr_client.marketdata_history_by_symbol = MagicMock(side_effect=Exception("API error"))
+
+    scanner = AnnouncementGapScanner(ibkr_client=mock_ibkr_client)
+
+    gap = scanner._get_gap_from_ibkr("BHP")
+
+    assert gap is None
+
+
+def test_announcement_gap_scanner_ibkr_gap_insufficient_data():
+    """Test that scanner returns None when IBKR returns insufficient data."""
+    from app.scanners.gap.announcement_gap_scanner import AnnouncementGapScanner
+
+    mock_ibkr_client = MagicMock()
+    mock_ibkr_client.marketdata_history_by_symbol = MagicMock(
+        return_value=MagicMock(data={"data": [{"o": 50.00}]})
+    )
+
+    scanner = AnnouncementGapScanner(ibkr_client=mock_ibkr_client)
+
+    gap = scanner._get_gap_from_ibkr("BHP")
+
+    assert gap is None
