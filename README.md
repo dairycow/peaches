@@ -148,7 +148,7 @@ watch -n 5 curl -s http://localhost:8080/api/v1/health | jq
 ## Historical Data
 
 Automatic pipeline (AEST):
-- 10:00 AM - Download CSV from CoolTrader
+- 9:55 AM - Download CSV from CoolTrader
 - 10:05 AM - Import to vn.py database
 
 **Manual**:

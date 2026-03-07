@@ -66,7 +66,7 @@ class CoolTraderConfig(BaseSettings):
     base_url: str = Field(
         default="https://data.cooltrader.com.au", description="CoolTrader API base URL"
     )
-    download_schedule: str = Field(default="0 10 * * *", description="Download cron schedule")
+    download_schedule: str = Field(default="55 9 * * *", description="Download cron schedule")
     import_schedule: str = Field(default="5 10 * * *", description="Import cron schedule")
 
 
