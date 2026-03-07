@@ -91,6 +91,22 @@ async def scan_announcement_gap(
         raise ValueError(f"Scan failed: {str(e)}") from e
 
 
+@router.post("/trigger-scan")
+async def trigger_scheduled_scan() -> dict[str, str]:
+    """Manually trigger the scheduled announcement gap scan (with Discord notifications)."""
+    from app.events import get_event_bus
+    from app.events.events import AnnouncementGapScanStartedEvent
+
+    event_bus = get_event_bus()
+    await event_bus.publish(
+        AnnouncementGapScanStartedEvent(
+            source="manual",
+            correlation_id="manual_test",
+        )
+    )
+    return {"status": "triggered", "message": "Scan event published"}
+
+
 @router.post("/sample-opening-ranges", response_model=OpeningRangeResponse)
 async def sample_opening_ranges(
     request: AnnouncementGapScanRequest,
