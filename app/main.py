@@ -49,17 +49,25 @@ def _setup_logging() -> None:
 
 async def _setup_database() -> None:
     """Setup vn.py SQLite database."""
+    from pathlib import Path
+
     import vnpy_sqlite.sqlite_database
     from vnpy.trader.setting import SETTINGS
-    from vnpy.trader.utility import get_file_path
 
     SETTINGS["database.name"] = "sqlite"
     SETTINGS["database.database"] = config.database.path
 
-    filename: str = SETTINGS["database.database"] or "database.db"
-    path: str = str(get_file_path(filename))
+    db_path = Path(SETTINGS["database.database"] or "database.db")
+    if db_path.is_absolute():
+        path = str(db_path)
+    else:
+        from vnpy.trader.utility import get_file_path
+
+        path = str(get_file_path(str(db_path)))
+
     vnpy_sqlite.sqlite_database.db = vnpy_sqlite.sqlite_database.PeeweeSqliteDatabase(path)
     vnpy_sqlite.sqlite_database.path = path
+    logger.info(f"Database initialised at {path}")
 
 
 @asynccontextmanager
