@@ -7,6 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class DatabaseConfig(BaseSettings):
     """Database configuration."""
 
+    model_config = SettingsConfigDict(env_prefix="DATABASE_")
+
     path: str = Field(default="/app/data/trading.db", description="SQLite database path")
     backup_enabled: bool = Field(default=True, description="Enable automatic backups")
     backup_interval_hours: int = Field(default=24, ge=1, description="Backup interval in hours")
