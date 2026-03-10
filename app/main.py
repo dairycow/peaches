@@ -7,10 +7,31 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from loguru import logger
+from vnpy.trader.setting import SETTINGS
 
-from app.api.v1 import router as v1_router
-from app.bot import get_bot
 from app.config import config
+
+SETTINGS["database.name"] = "sqlite"
+SETTINGS["database.database"] = config.database.path
+
+import vnpy.trader.database  # noqa: E402
+import vnpy_sqlite.sqlite_database  # noqa: E402
+
+vnpy.trader.database.database = None
+
+db_path = Path(config.database.path)
+if db_path.is_absolute():
+    path = str(db_path)
+else:
+    from vnpy.trader.utility import get_file_path
+
+    path = str(get_file_path(str(db_path)))
+
+vnpy_sqlite.sqlite_database.db = vnpy_sqlite.sqlite_database.PeeweeSqliteDatabase(path)
+vnpy_sqlite.sqlite_database.path = path
+
+from app.api.v1 import router as v1_router  # noqa: E402
+from app.bot import get_bot  # noqa: E402
 
 
 def _setup_logging() -> None:
@@ -45,28 +66,6 @@ def _setup_logging() -> None:
     )
 
     logger.info(f"Logging configured at {log_level} level")
-
-
-async def _setup_database() -> None:
-    """Setup vn.py SQLite database."""
-    from pathlib import Path
-
-    import vnpy_sqlite.sqlite_database
-    from vnpy.trader.setting import SETTINGS
-
-    SETTINGS["database.name"] = "sqlite"
-    SETTINGS["database.database"] = config.database.path
-
-    db_path = Path(SETTINGS["database.database"] or "database.db")
-    if db_path.is_absolute():
-        path = str(db_path)
-    else:
-        from vnpy.trader.utility import get_file_path
-
-        path = str(get_file_path(str(db_path)))
-
-    vnpy_sqlite.sqlite_database.db = vnpy_sqlite.sqlite_database.PeeweeSqliteDatabase(path)
-    vnpy_sqlite.sqlite_database.path = path
     logger.info(f"Database initialised at {path}")
 
 
@@ -83,7 +82,6 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting peaches-trading-bot...")
 
     _setup_logging()
-    await _setup_database()
 
     bot = get_bot()
     await bot.start()
