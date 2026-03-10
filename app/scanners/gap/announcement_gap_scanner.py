@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -273,7 +273,7 @@ class AnnouncementGapScanner(ScannerBase):
             N-month high price
         """
         cutoff_days = lookback_months * 30
-        cutoff_date = datetime.now() - timedelta(days=cutoff_days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=cutoff_days)
 
         if not bars:
             return 0.0
