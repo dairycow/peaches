@@ -470,6 +470,99 @@ def scan_gaps(
         typer.echo(result)
 
 
+@scanner_app.command("biggest-gaps")
+def scan_biggest_gaps(
+    symbol: str | None = typer.Option(None, help="Specific symbol (or scan all)"),
+    start_date: str = typer.Option(..., help="Start date (YYYY-MM-DD)"),
+    end_date: str = typer.Option(..., help="End date (YYYY-MM-DD)"),
+    direction: str = typer.Option("both", help="Gap direction: up, down, or both"),
+    min_gap_pct: float = typer.Option(1.0, help="Minimum gap percentage"),
+    min_price: float = typer.Option(0.20, help="Minimum previous close price"),
+    exclude_options: bool = typer.Option(True, help="Exclude ASX option/warrant codes"),
+    limit: int = typer.Option(20, help="Max results to return"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
+) -> None:
+    """Find biggest close-to-open gaps sorted by absolute value."""
+
+    if direction not in ("up", "down", "both"):
+        typer.echo("Invalid direction. Use: up, down, or both")
+        raise typer.Exit(code=1)
+
+    try:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError as e:
+        typer.echo(f"Invalid date format: {e}")
+        typer.echo("Use ISO format: YYYY-MM-DD")
+        raise typer.Exit(code=1)  # noqa: B904
+
+    symbols = [symbol] if symbol else list_available_symbols()
+
+    typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
+
+    bars_dict = load_bars_batch(symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY)
+    stocks_dict = {ticker: StockData(ticker, bars) for ticker, bars in bars_dict.items() if bars}
+
+    if not stocks_dict:
+        typer.echo("No data found for any symbols")
+        raise typer.Exit(code=1)
+
+    scanner = GapScanner(stocks_dict)
+
+    gaps = scanner.find_gaps(
+        start_date=start_dt,
+        end_date=end_dt,
+        gap_threshold=min_gap_pct,
+        volume_multiplier=0,
+        min_volume=0,
+        direction=direction,
+        sort_absolute=True,
+        min_price=min_price,
+        exclude_options=exclude_options,
+    )[:limit]
+
+    if not gaps:
+        typer.echo("No gaps found matching criteria")
+        return
+
+    import polars as pl
+
+    df = pl.DataFrame(gaps)
+
+    if output:
+        import json
+
+        result = {
+            "period": {"start": start_date, "end": end_date},
+            "direction": direction,
+            "min_gap_pct": min_gap_pct,
+            "count": len(gaps),
+            "gaps": gaps,
+        }
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with open(output, "w") as f:
+            json.dump(result, f, indent=2)
+        typer.echo(f"Results saved to: {output}")
+
+    display_df = df.select(
+        pl.when(pl.col("direction") == "up").then(pl.lit("+")).otherwise(pl.lit("-")).alias("dir"),
+        pl.col("ticker"),
+        pl.col("date"),
+        pl.col("gap_percent").round(2).alias("gap%"),
+        pl.col("prev_close").round(3).alias("prev_close"),
+        pl.col("open").round(3).alias("open"),
+        pl.col("close").round(3).alias("close"),
+        pl.col("volume"),
+    ).with_row_index(name="#", offset=1)
+
+    typer.echo("")
+    typer.echo(
+        f"Top {len(gaps)} gap{'s' if len(gaps) != 1 else ''} ({direction}) | {start_date} to {end_date}"
+    )
+    typer.echo("-" * 90)
+    typer.echo(display_df)
+
+
 def cli() -> None:
     """Main CLI entry point."""
     app()
