@@ -10,7 +10,15 @@ from app.config import config
 
 
 def _get_db_path() -> str:
-    return config.database.path
+    from pathlib import Path
+
+    configured = Path(config.database.path)
+    if configured.exists():
+        return str(configured)
+    fallback = Path("data-prod/trading.db")
+    if fallback.exists():
+        return str(fallback.resolve())
+    return str(configured)
 
 
 def _query_df(query: str, params: list[str] | None = None) -> pl.DataFrame:
@@ -128,6 +136,7 @@ def load_bars_batch(
     end: datetime,
     exchange: Exchange = Exchange.LOCAL,
     interval: Interval = Interval.DAILY,
+    lookback_days: int = 0,
 ) -> dict[str, list[BarData]]:
     """Load OHLCV bar data from database for multiple symbols.
 
@@ -137,15 +146,57 @@ def load_bars_batch(
         end: End datetime
         exchange: Exchange (default: LOCAL)
         interval: Bar interval (default: DAILY)
+        lookback_days: Extra days before start to load for volume lookback (default 0)
 
     Returns:
         Dictionary of symbol -> list of BarData objects
     """
-    result: dict[str, list[BarData]] = {}
+    if not symbols:
+        return {}
 
-    for symbol in symbols:
-        result[symbol] = load_bars(symbol, start, end, exchange, interval)
+    effective_start = start
+    if lookback_days > 0:
+        from datetime import timedelta
 
+        effective_start = start - timedelta(days=lookback_days)
+
+    result: dict[str, list[BarData]] = {s: [] for s in symbols}
+    batch_size = 500
+    start_str = effective_start.strftime("%Y-%m-%d %H:%M:%S")
+    end_str = end.strftime("%Y-%m-%d %H:%M:%S")
+
+    for i in range(0, len(symbols), batch_size):
+        batch = symbols[i : i + batch_size]
+        placeholders = ",".join(["?"] * len(batch))
+        df = _query_df(
+            f"""
+                SELECT symbol, exchange, interval, datetime,
+                       open_price, high_price, low_price, close_price, volume
+                FROM dbbardata
+                WHERE symbol IN ({placeholders}) AND interval = 'd'
+                  AND datetime >= ? AND datetime <= ?
+                ORDER BY symbol, datetime
+            """,
+            [*batch, start_str, end_str],
+        )
+
+        for row in df.iter_rows(named=True):
+            bar = BarData(
+                symbol=str(row["symbol"]),
+                exchange=Exchange(str(row["exchange"])),
+                interval=Interval(str(row["interval"])),
+                datetime=_parse_datetime(row["datetime"]),
+                open_price=float(row["open_price"]),
+                high_price=float(row["high_price"]),
+                low_price=float(row["low_price"]),
+                close_price=float(row["close_price"]),
+                volume=float(row["volume"]),
+            )
+            if bar.symbol in result:
+                result[bar.symbol].append(bar)
+
+    total_bars = sum(len(bars) for bars in result.values())
+    logger.info(f"Loaded {total_bars} bars for {len(symbols)} symbols")
     return result
 
 

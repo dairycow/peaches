@@ -185,9 +185,11 @@ class GapScanner:
                 continue
 
             if volume_filtering:
-                filtered_df = stock.df.filter(pl.col("date") < current["date"])
-                if len(filtered_df) >= 50:
-                    volume_mean = filtered_df["volume"].tail(50).mean()
+                lookback_start = current["date"]
+                vol_df = stock.df.filter(pl.col("date") < lookback_start)
+                if len(vol_df) > 0:
+                    lookback_window = min(len(vol_df), 50)
+                    volume_mean = vol_df["volume"].tail(lookback_window).mean()
                     avg_volume = (
                         float(volume_mean)
                         if volume_mean is not None and isinstance(volume_mean, (int, float))
@@ -198,7 +200,9 @@ class GapScanner:
 
                 vol_multiple = current["volume"] / avg_volume if avg_volume > 0 else 0
 
-                if current["volume"] < min_volume or vol_multiple < volume_multiplier:
+                if current["volume"] < min_volume:
+                    continue
+                if volume_multiplier > 0 and avg_volume > 0 and vol_multiple < volume_multiplier:
                     continue
             else:
                 avg_volume = 0.0
