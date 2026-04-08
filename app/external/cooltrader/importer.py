@@ -54,7 +54,13 @@ class CSVImporter:
         for zip_path in zip_files:
             try:
                 with zipfile.ZipFile(zip_path) as zf:
-                    csv_in_zip = [name for name in zf.namelist() if name.endswith(".csv")]
+                    csv_in_zip = [
+                        name
+                        for name in zf.namelist()
+                        if name.endswith(".csv")
+                        and not name.startswith("__MACOSX")
+                        and not Path(name).name.startswith("._")
+                    ]
 
                     for csv_name in csv_in_zip:
                         csv_path = self.csv_dir / csv_name
@@ -191,7 +197,11 @@ class CSVImporter:
             Import summary dictionary
         """
         extracted_count = self._extract_zip_files()
-        csv_files = sorted(self.csv_dir.glob("**/*.csv"))
+        csv_files = sorted(
+            f
+            for f in self.csv_dir.glob("**/*.csv")
+            if "__MACOSX" not in f.parts and not f.name.startswith("._")
+        )
 
         if not csv_files:
             logger.warning(f"No CSV files found in {self.csv_dir}")
@@ -232,13 +242,16 @@ class CSVImporter:
                 success += 1
                 if result["total_bars"] is not None:
                     total_bars_imported += result["total_bars"]
-                newly_processed_files.append(str(filepath.relative_to(self.csv_dir)))
+                rel_path = str(filepath.relative_to(self.csv_dir))
+                processed_files.add(rel_path)
+                newly_processed_files.append(rel_path)
             elif result["status"] == "skipped":
                 skipped += 1
             else:
                 errors += 1
 
-        self._save_processed_files(processed_files_path, processed_files, newly_processed_files)
+        if newly_processed_files:
+            self._save_processed_files(processed_files_path, processed_files, [])
 
         if total_bars_imported > 0:
             logger.info("Rebuilding database overview...")
