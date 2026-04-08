@@ -5,7 +5,6 @@ from pathlib import Path
 
 import typer
 from loguru import logger
-from vnpy.trader.constant import Exchange, Interval
 
 from app.analysis.announcement_scraper import AnnouncementScraper
 from app.analysis.backtest_engine import run_backtest
@@ -18,6 +17,7 @@ from app.analysis.results import ResultsExporter
 from app.analysis.scanners import GapScanner, MomentumScanner
 from app.analysis.stock_data import StockData
 from app.analysis.strategies.donchian_breakout import DonchianBreakoutStrategy
+from app.analysis.types import Exchange, Interval
 from app.config import config
 
 app = typer.Typer(

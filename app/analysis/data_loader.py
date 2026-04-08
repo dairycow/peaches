@@ -1,14 +1,32 @@
-"""Data loading utilities for backtesting."""
+"""Data loading utilities for analysis."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 
-from vnpy.trader.constant import Exchange, Interval
+import polars as pl
+from loguru import logger
 
-if TYPE_CHECKING:
-    from vnpy.trader.object import BarData
+from app.analysis.types import BarData, Exchange, Interval
+from app.config import config
 
-from app.external.vnpy.database import get_database_manager
+
+def _get_db_path() -> str:
+    return config.database.path
+
+
+def _query_df(query: str, params: list[str] | None = None) -> pl.DataFrame:
+    import sqlite3
+
+    db_path = _get_db_path()
+    conn = sqlite3.connect(db_path)
+    cur = conn.execute(query, params or [])
+    cols = [d[0] for d in cur.description]
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        return pl.DataFrame(schema=cols)
+
+    return pl.DataFrame(rows, schema=cols, orient="row")
 
 
 def load_bars(
@@ -17,21 +35,50 @@ def load_bars(
     end: datetime,
     exchange: Exchange = Exchange.LOCAL,
     interval: Interval = Interval.DAILY,
-) -> list["BarData"]:
+) -> list[BarData]:
     """Load OHLCV bar data from database.
 
     Args:
         symbol: Trading symbol (e.g., "BHP")
         start: Start datetime
         end: End datetime
-        exchange: Exchange (default: LOCAL for CSV data)
+        exchange: Exchange (default: LOCAL)
         interval: Bar interval (default: DAILY)
 
     Returns:
         List of BarData objects
     """
-    db = get_database_manager()
-    return db.load_bars(symbol, exchange, interval, start, end)
+    start_str = start.strftime("%Y-%m-%d %H:%M:%S")
+    end_str = end.strftime("%Y-%m-%d %H:%M:%S")
+
+    df = _query_df(
+        """
+            SELECT symbol, exchange, interval, datetime,
+                   open_price, high_price, low_price, close_price, volume
+            FROM dbbardata
+            WHERE symbol = ? AND interval = 'd' AND datetime >= ? AND datetime <= ?
+            ORDER BY datetime
+        """,
+        [symbol, start_str, end_str],
+    )
+
+    bars: list[BarData] = []
+    for row in df.iter_rows(named=True):
+        bar = BarData(
+            symbol=str(row["symbol"]),
+            exchange=Exchange(str(row["exchange"])),
+            interval=Interval(str(row["interval"])),
+            datetime=_parse_datetime(row["datetime"]),
+            open_price=float(row["open_price"]),
+            high_price=float(row["high_price"]),
+            low_price=float(row["low_price"]),
+            close_price=float(row["close_price"]),
+            volume=float(row["volume"]),
+        )
+        bars.append(bar)
+
+    logger.info(f"Loaded {len(bars)} bars for {symbol}")
+    return bars
 
 
 def list_available_symbols() -> list[str]:
@@ -40,9 +87,8 @@ def list_available_symbols() -> list[str]:
     Returns:
         List of symbol names
     """
-    db = get_database_manager()
-    overview = db.get_overview()
-    return [o.symbol for o in overview if o.interval == Interval.DAILY]
+    df = _query_df("SELECT DISTINCT symbol FROM dbbaroverview WHERE interval = 'd' ORDER BY symbol")
+    return df["symbol"].to_list()
 
 
 def get_symbol_data_range(symbol: str) -> dict[str, str | int] | None:
@@ -54,22 +100,26 @@ def get_symbol_data_range(symbol: str) -> dict[str, str | int] | None:
     Returns:
         Dict with 'start' and 'end' dates, or None if not found
     """
-    db = get_database_manager()
-    overview = db.get_overview()
+    df = _query_df(
+        """
+            SELECT start, end, count FROM dbbaroverview
+            WHERE symbol = ? AND interval = 'd'
+        """,
+        [symbol],
+    )
 
-    for o in overview:
-        if (
-            o.symbol == symbol
-            and o.interval == Interval.DAILY
-            and o.start is not None
-            and o.end is not None
-        ):
-            return {
-                "start": o.start.strftime("%Y-%m-%d"),
-                "end": o.end.strftime("%Y-%m-%d"),
-                "count": o.count,
-            }
-    return None
+    if df.is_empty():
+        return None
+
+    row = df.row(0, named=True)
+    if row["start"] is None or row["end"] is None:
+        return None
+
+    return {
+        "start": str(row["start"])[:10],
+        "end": str(row["end"])[:10],
+        "count": int(row["count"]),
+    }
 
 
 def load_bars_batch(
@@ -78,23 +128,28 @@ def load_bars_batch(
     end: datetime,
     exchange: Exchange = Exchange.LOCAL,
     interval: Interval = Interval.DAILY,
-) -> dict[str, list["BarData"]]:
+) -> dict[str, list[BarData]]:
     """Load OHLCV bar data from database for multiple symbols.
 
     Args:
         symbols: List of trading symbols
         start: Start datetime
         end: End datetime
-        exchange: Exchange (default: LOCAL for CSV data)
+        exchange: Exchange (default: LOCAL)
         interval: Bar interval (default: DAILY)
 
     Returns:
         Dictionary of symbol -> list of BarData objects
     """
-    db = get_database_manager()
     result: dict[str, list[BarData]] = {}
 
     for symbol in symbols:
-        result[symbol] = db.load_bars(symbol, exchange, interval, start, end)
+        result[symbol] = load_bars(symbol, start, end, exchange, interval)
 
     return result
+
+
+def _parse_datetime(value: str | datetime) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.strptime(str(value), "%Y-%m-%d %H:%M:%S")
