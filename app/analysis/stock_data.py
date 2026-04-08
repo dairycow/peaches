@@ -52,15 +52,10 @@ def bars_to_dataframe(bars: list[BarData]) -> pl.DataFrame:
 class StockData:
     """Stock data wrapper for pattern scanning."""
 
-    def __init__(self, ticker: str, bars: list[BarData]):
-        """Initialize StockData.
-
-        Args:
-            ticker: Stock symbol
-            bars: List of BarData objects
-        """
+    def __init__(self, ticker: str, bars: list[BarData], scan_start: datetime | None = None):
         self.ticker = ticker
         self.df = bars_to_dataframe(bars)
+        self.scan_start = scan_start
 
     def filter_by_date_range(self, start_date: datetime, end_date: datetime) -> pl.DataFrame:
         """Filter DataFrame by date range.

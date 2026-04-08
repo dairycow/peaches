@@ -328,8 +328,14 @@ def scan_momentum(
 
     typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
 
-    bars_dict = load_bars_batch(symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY)
-    stocks_dict = {ticker: StockData(ticker, bars) for ticker, bars in bars_dict.items() if bars}
+    bars_dict = load_bars_batch(
+        symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY, lookback_days=100
+    )
+    stocks_dict = {
+        ticker: StockData(ticker, bars, scan_start=start_dt)
+        for ticker, bars in bars_dict.items()
+        if bars
+    }
 
     if not stocks_dict:
         typer.echo("No data found for any symbols")
@@ -383,8 +389,14 @@ def scan_consolidation(
 
     typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
 
-    bars_dict = load_bars_batch(symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY)
-    stocks_dict = {ticker: StockData(ticker, bars) for ticker, bars in bars_dict.items() if bars}
+    bars_dict = load_bars_batch(
+        symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY, lookback_days=100
+    )
+    stocks_dict = {
+        ticker: StockData(ticker, bars, scan_start=start_dt)
+        for ticker, bars in bars_dict.items()
+        if bars
+    }
 
     if not stocks_dict:
         typer.echo("No data found for any symbols")
@@ -440,8 +452,14 @@ def scan_gaps(
 
     typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
 
-    bars_dict = load_bars_batch(symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY)
-    stocks_dict = {ticker: StockData(ticker, bars) for ticker, bars in bars_dict.items() if bars}
+    bars_dict = load_bars_batch(
+        symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY, lookback_days=100
+    )
+    stocks_dict = {
+        ticker: StockData(ticker, bars, scan_start=start_dt)
+        for ticker, bars in bars_dict.items()
+        if bars
+    }
 
     if not stocks_dict:
         typer.echo("No data found for any symbols")
@@ -500,8 +518,14 @@ def scan_biggest_gaps(
 
     typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
 
-    bars_dict = load_bars_batch(symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY)
-    stocks_dict = {ticker: StockData(ticker, bars) for ticker, bars in bars_dict.items() if bars}
+    bars_dict = load_bars_batch(
+        symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY, lookback_days=100
+    )
+    stocks_dict = {
+        ticker: StockData(ticker, bars, scan_start=start_dt)
+        for ticker, bars in bars_dict.items()
+        if bars
+    }
 
     if not stocks_dict:
         typer.echo("No data found for any symbols")
