@@ -1,238 +1,172 @@
-"""Backtest engine wrapper for running strategies with vn.py."""
+"""Simple event-driven backtest engine."""
+
+from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from vnpy.trader.constant import Direction, Exchange, Interval, Offset
-from vnpy_ctastrategy.backtesting import BacktestingEngine
+from loguru import logger
 
 from app.analysis.data_loader import load_bars
 from app.analysis.metrics import MetricsCalculator
 from app.analysis.results import BacktestResult, EquityPoint, ResultsExporter, TradeData
+from app.analysis.types import BarData
 
 if TYPE_CHECKING:
-    from vnpy.trader.object import BarData
-    from vnpy.trader.object import TradeData as VnpyTradeData
+    from app.analysis.strategies.donchian_breakout import DonchianBreakoutStrategy
 
 
-class BacktestEngineWrapper:
-    """Wrapper around vn.py BacktestingEngine."""
+class BacktestPortfolio:
+    """Tracks portfolio state during backtesting."""
 
-    def __init__(
-        self,
-        capital: float = 1_000_000,
-        commission_rate: float = 0.001,
-        fixed_commission: float = 6.6,
-        slippage: float = 0.02,
-    ) -> None:
-        """Initialize backtest engine.
-
-        Args:
-            capital: Initial capital
-            commission_rate: Commission rate percentage
-            fixed_commission: Fixed commission per trade ($6.60)
-            slippage: Slippage percentage (2%)
-
-        """
+    def __init__(self, capital: float, commission_rate: float, fixed_commission: float) -> None:
         self.capital = capital
         self.commission_rate = commission_rate
         self.fixed_commission = fixed_commission
-        self.slippage = slippage
 
-    def run_backtest(
-        self,
-        symbol: str,
-        strategy_class: type,
-        strategy_params: dict[str, float | str],
-        start_date: datetime,
-        end_date: datetime,
-    ) -> BacktestResult:
-        """Run backtest for a symbol and strategy.
+        self.position: int = 0
+        self.entry_price: float = 0.0
+        self.equity = capital
+        self.peak_equity = capital
+        self.daily_pnl: list[tuple[datetime, float]] = []
+        self.trades: list[dict[str, Any]] = []
 
-        Args:
-            symbol: Trading symbol (e.g., "BHP")
-            strategy_class: Strategy class to backtest
-            strategy_params: Strategy parameters
-            start_date: Backtest start date
-            end_date: Backtest end date
+    def buy(self, price: float, size: int, bar: BarData) -> None:
+        cost = price * size
+        commission = cost * self.commission_rate + self.fixed_commission
+        self.equity -= commission
+        self.position += size
+        if self.entry_price == 0:
+            self.entry_price = price
+        logger.debug(f"BUY {size} @ {price:.2f} on {bar.datetime.date()}")
 
-        Returns:
-            BacktestResult object with results
+    def sell(self, price: float, size: int, bar: BarData) -> None:
+        size = min(size, self.position)
+        if size <= 0:
+            return
+        proceeds = price * size
+        commission = proceeds * self.commission_rate + self.fixed_commission
+        self.equity -= commission
 
-        """
-        engine = BacktestingEngine()
-
-        bars = load_bars(symbol, start_date, end_date, Exchange.LOCAL, Interval.DAILY)
-
-        if not bars:
-            raise ValueError(f"No data found for {symbol} in specified date range")
-
-        engine.set_parameters(
-            vt_symbol=f"{symbol}.LOCAL",
-            interval=Interval.DAILY,
-            start=start_date,
-            end=end_date,
-            capital=self.capital,
-            rate=self.commission_rate,
-            slippage=self.slippage,
-            size=1,
-            pricetick=0.01,
-        )
-
-        engine.add_strategy(
-            strategy_class,
-            setting=strategy_params,
-        )
-
-        engine.load_data()
-        engine.run_backtesting()
-
-        daily_results_df = engine.calculate_result()
-        vnpy_trades = engine.get_all_trades()
-
-        equity_curve = self._build_equity_curve(daily_results_df, bars)
-        trade_list = self._build_trade_list(vnpy_trades)
-
-        metrics = MetricsCalculator.calculate_metrics(trade_list, equity_curve, self.capital)
-
-        return BacktestResult(
-            symbol=symbol,
-            strategy=str(strategy_params.get("strategy_name", strategy_class.__name__)),
-            period={
-                "start": start_date.strftime("%Y-%m-%d"),
-                "end": end_date.strftime("%Y-%m-%d"),
-            },
-            parameters=strategy_params,
-            initial_capital=self.capital,
-            final_capital=self.capital * (1 + metrics.get("total_return", 0)),
-            metrics=metrics,
-            trades=[TradeData(**t) for t in trade_list],  # type: ignore[arg-type]
-            equity_curve=[EquityPoint(**e) for e in equity_curve],  # type: ignore[arg-type]
-        )
-
-    def _build_equity_curve(
-        self, daily_results_df: Any, bars: list["BarData"]
-    ) -> list[dict[str, float | str]]:
-        """Build equity curve from daily results.
-
-        Args:
-            daily_results_df: vn.py daily results DataFrame
-            bars: List of bar data
-
-        Returns:
-            List of equity point dicts
-
-        """
-        equity_curve: list[dict[str, float | str]] = []
-
-        if daily_results_df is None or daily_results_df.empty:
-            return equity_curve
-
-        daily_results_df = daily_results_df.copy()
-        daily_results_df = daily_results_df.sort_index()
-        daily_results_df["cumulative_pnl"] = daily_results_df["net_pnl"].cumsum()
-
-        daily_results_dict = daily_results_df.to_dict("index")
-
-        running_peak = self.capital
-
-        for bar in bars:
-            if bar.datetime is None:
-                continue
-            date = bar.datetime.date()
-            if date in daily_results_dict:
-                daily_result = daily_results_dict[date]
-                value = self.capital + float(daily_result["cumulative_pnl"])
-
-                running_peak = max(running_peak, value)
-                drawdown = (running_peak - value) / running_peak if running_peak > 0 else 0.0
-
-                equity_curve.append(
-                    {
-                        "date": bar.datetime.strftime("%Y-%m-%d"),
-                        "value": float(value),
-                        "drawdown": float(drawdown),
-                    }
-                )
-            elif equity_curve:
-                equity_curve.append(
-                    {
-                        "date": bar.datetime.strftime("%Y-%m-%d"),
-                        "value": float(equity_curve[-1]["value"]),
-                        "drawdown": 0.0,
-                    }
-                )
-
-        return equity_curve
-
-    def _build_trade_list(self, vnpy_trades: list["VnpyTradeData"]) -> list[dict[str, float | str]]:
-        """Build trade list from vn.py trades.
-
-        Args:
-            vnpy_trades: List of vn.py TradeData objects
-
-        Returns:
-            List of trade dicts with entry/exit paired data
-
-        """
-        buy_trades: list[dict[str, float | str]] = []
-        sell_trades: list[dict[str, float | str]] = []
-
-        for trade in vnpy_trades:
-            if trade.datetime is None or trade.direction is None:
-                continue
-            trade_dict: dict[str, float | str] = {
-                "time": trade.datetime.strftime("%Y-%m-%d %H:%M:%S"),
-                "price": float(trade.price),
-                "quantity": float(trade.volume),
-                "direction": trade.direction.value,
+        pnl = (price - self.entry_price) * size - self.fixed_commission * 2
+        self.trades.append(
+            {
+                "entry_time": bar.datetime.strftime("%Y-%m-%d %H:%M:%S"),
+                "exit_time": bar.datetime.strftime("%Y-%m-%d %H:%M:%S"),
+                "entry_price": self.entry_price,
+                "exit_price": price,
+                "quantity": size,
+                "pnl": float(pnl),
             }
+        )
 
-            if trade.direction == Direction.LONG and trade.offset == Offset.OPEN:
-                buy_trades.append(trade_dict)
-            elif trade.direction == Direction.SHORT and trade.offset == Offset.CLOSE:
-                sell_trades.append(trade_dict)
+        self.equity += pnl
+        self.position = 0
+        self.entry_price = 0.0
+        logger.debug(f"SELL {size} @ {price:.2f} on {bar.datetime.date()} (PnL: {pnl:.2f})")
 
-        trades = []
-        buy_queue = list(buy_trades)
+    def mark_to_market(self, bar: BarData) -> None:
+        unrealised = self.position * bar.close_price
+        total = self.equity + unrealised
+        pnl = total - self.capital
+        self.daily_pnl.append((bar.datetime, pnl))
+        if total > self.peak_equity:
+            self.peak_equity = total
 
-        for sell in sell_trades:
-            remaining_sell_qty = float(sell["quantity"])
+    @property
+    def final_equity(self) -> float:
+        return self.equity
 
-            while remaining_sell_qty > 0 and buy_queue:
-                buy = buy_queue[0]
-                buy_qty = float(buy["quantity"])
-                match_qty = min(remaining_sell_qty, buy_qty)
 
-                pnl = (
-                    float(sell["price"]) - float(buy["price"])
-                ) * match_qty - self.fixed_commission * 2 * (match_qty / remaining_sell_qty)
+class CtaEngine:
+    """Minimal CTA engine stub for strategy compatibility."""
 
-                trades.append(
-                    {
-                        "entry_time": buy["time"],
-                        "exit_time": sell["time"],
-                        "entry_price": float(buy["price"]),
-                        "exit_price": float(sell["price"]),
-                        "quantity": int(match_qty),
-                        "pnl": float(pnl),
-                    }
-                )
+    def __init__(self, portfolio: BacktestPortfolio, capital: float) -> None:
+        self.portfolio = portfolio
+        self.capital = capital
+        self.current_bar: BarData | None = None
 
-                remaining_sell_qty -= match_qty
+    def buy(self, price: float, volume: float, stop: bool = False) -> None:  # noqa: ARG002
+        if self.current_bar:
+            self.portfolio.buy(price, int(volume), self.current_bar)
 
-                if match_qty >= buy_qty:
-                    buy_queue.pop(0)
-                else:
-                    buy["quantity"] = buy_qty - match_qty
+    def sell(self, price: float, volume: float, stop: bool = False) -> None:  # noqa: ARG002
+        if self.current_bar:
+            self.portfolio.sell(price, int(volume), self.current_bar)
 
-        return trades
+    def write_log(self, msg: str) -> None:
+        logger.debug(msg)
+
+
+def run_strategy_backtest(
+    strategy: DonchianBreakoutStrategy,
+    bars: list[BarData],
+    capital: float,
+    commission_rate: float,
+    fixed_commission: float,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[tuple[datetime, float]]]:
+    """Run a strategy against bar data.
+
+    Returns:
+        (trades, equity_points, daily_pnl)
+    """
+    portfolio = BacktestPortfolio(capital, commission_rate, fixed_commission)
+    cta_engine = CtaEngine(portfolio, capital)
+
+    strategy.on_init()
+    strategy.on_start()
+
+    for bar in bars:
+        cta_engine.current_bar = bar
+        strategy.on_bar(bar)
+
+    strategy.on_stop()
+
+    equity_curve = _build_equity_curve(portfolio, bars, capital)
+    return portfolio.trades, equity_curve, portfolio.daily_pnl
+
+
+def _build_equity_curve(
+    portfolio: BacktestPortfolio, bars: list[BarData], capital: float
+) -> list[dict[str, Any]]:
+    cumulative_pnl = {}
+    running = 0.0
+    for dt, pnl in portfolio.daily_pnl:
+        running += pnl
+        cumulative_pnl[dt.date()] = running
+
+    curve: list[dict[str, Any]] = []
+    peak = capital
+
+    for bar in bars:
+        date = bar.datetime.date()
+        if date in cumulative_pnl:
+            value = capital + cumulative_pnl[date]
+            peak = max(peak, value)
+            drawdown = (peak - value) / peak if peak > 0 else 0.0
+            curve.append(
+                {
+                    "date": bar.datetime.strftime("%Y-%m-%d"),
+                    "value": float(value),
+                    "drawdown": float(drawdown),
+                }
+            )
+        elif curve:
+            curve.append(
+                {
+                    "date": bar.datetime.strftime("%Y-%m-%d"),
+                    "value": float(curve[-1]["value"]),
+                    "drawdown": 0.0,
+                }
+            )
+
+    return curve
 
 
 def run_backtest(
     symbol: str,
-    strategy_class: type,
+    strategy_class: type[DonchianBreakoutStrategy],
     strategy_params: dict[str, float | str],
     start_date: datetime,
     end_date: datetime,
@@ -255,14 +189,41 @@ def run_backtest(
     """
     from app.config import config
 
-    engine = BacktestEngineWrapper(
-        capital=capital,
-        commission_rate=config.analysis.commission_rate,
-        fixed_commission=config.analysis.fixed_commission,
-        slippage=config.analysis.slippage,
+    commission_rate = config.analysis.commission_rate
+    fixed_commission = config.analysis.fixed_commission
+
+    bars = load_bars(symbol, start_date, end_date)
+
+    if not bars:
+        raise ValueError(f"No data found for {symbol} in specified date range")
+
+    strategy = strategy_class(
+        cta_engine=None,
+        strategy_name=str(strategy_params.get("strategy_name", strategy_class.__name__)),
+        vt_symbol=f"{symbol}.LOCAL",
+        setting=strategy_params,
     )
 
-    result = engine.run_backtest(symbol, strategy_class, strategy_params, start_date, end_date)
+    trades, equity_curve, _ = run_strategy_backtest(
+        strategy, bars, capital, commission_rate, fixed_commission
+    )
+
+    metrics = MetricsCalculator.calculate_metrics(trades, equity_curve, capital)
+
+    result = BacktestResult(
+        symbol=symbol,
+        strategy=str(strategy_params.get("strategy_name", strategy_class.__name__)),
+        period={
+            "start": start_date.strftime("%Y-%m-%d"),
+            "end": end_date.strftime("%Y-%m-%d"),
+        },
+        parameters=strategy_params,
+        initial_capital=capital,
+        final_capital=capital * (1 + metrics.get("total_return", 0)),
+        metrics=metrics,
+        trades=[TradeData(**t) for t in trades],  # type: ignore[arg-type]
+        equity_curve=[EquityPoint(**e) for e in equity_curve],  # type: ignore[arg-type]
+    )
 
     if output_dir:
         ResultsExporter.export_all(result, output_dir)

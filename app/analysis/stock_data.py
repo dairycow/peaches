@@ -1,16 +1,17 @@
-"""Data adapter for converting vn.py BarData to polars DataFrames."""
+"""Data adapter for converting BarData to polars DataFrames."""
 
 from datetime import datetime
 
 import polars as pl
-from vnpy.trader.object import BarData
+
+from app.analysis.types import BarData
 
 
 def bars_to_dataframe(bars: list[BarData]) -> pl.DataFrame:
-    """Convert vn.py BarData list to polars DataFrame.
+    """Convert BarData list to polars DataFrame.
 
     Args:
-        bars: List of vn.py BarData objects
+        bars: List of BarData objects
 
     Returns:
         Polars DataFrame with columns: date, open, high, low, close, volume
@@ -29,16 +30,18 @@ def bars_to_dataframe(bars: list[BarData]) -> pl.DataFrame:
 
     data = []
     for bar in bars:
-        if bar.datetime is None:
+        dt = bar.datetime
+        if dt is None:
             continue
+        dt_date = dt.date() if isinstance(dt, datetime) else dt
         data.append(
             {
-                "date": bar.datetime.date(),
+                "date": dt_date,
                 "open": bar.open_price,
                 "high": bar.high_price,
                 "low": bar.low_price,
                 "close": bar.close_price,
-                "volume": bar.volume,
+                "volume": int(bar.volume),
             }
         )
 
@@ -54,7 +57,7 @@ class StockData:
 
         Args:
             ticker: Stock symbol
-            bars: List of vn.py BarData objects
+            bars: List of BarData objects
         """
         self.ticker = ticker
         self.df = bars_to_dataframe(bars)
