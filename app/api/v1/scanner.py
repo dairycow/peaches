@@ -25,7 +25,7 @@ def init_scanner() -> None:
     """Initialize the global gap scanner instance."""
     global gap_scanner
 
-    from app.external.vnpy.database import get_database_manager
+    from app.external.database import get_database_manager
 
     gap_scanner = GapScanner(get_database_manager())
 
@@ -51,8 +51,6 @@ async def start_gap_scan(request: ScanRequest) -> ScanResponse:
 @router.get("/gap/results/{scan_id}")
 async def get_scan_results(_scan_id: str) -> list[GapCandidate]:
     """Get results for a completed scan.
-
-    Note: Currently returns last scan results. In production, implement scan ID tracking.
 
     Args:
         _scan_id: Scan ID

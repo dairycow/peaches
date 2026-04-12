@@ -5,10 +5,10 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
-from vnpy.trader.object import BarData
 
 from app.analysis.scanners.gap_scanner import GapScanner
 from app.analysis.stock_data import StockData
+from app.analysis.types import BarData
 
 
 def _make_bar(

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 import polars as pl
@@ -65,8 +65,9 @@ def test_csv_date_parsing():
 
 def test_bardata_creation():
     """Test BarData object creation."""
-    from vnpy.trader.constant import Exchange, Interval
-    from vnpy.trader.object import BarData
+    from datetime import datetime
+
+    from app.analysis.types import BarData, Exchange, Interval
 
     bar = BarData(
         symbol="BHP",
@@ -78,7 +79,6 @@ def test_bardata_creation():
         low_price=30.3,
         close_price=30.3,
         volume=613098,
-        gateway_name="",
     )
 
     assert bar.symbol == "BHP"

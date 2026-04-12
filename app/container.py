@@ -3,8 +3,7 @@
 from typing import TYPE_CHECKING
 
 from app.config import config
-from app.external.vnpy.database import DatabaseManager
-from app.external.vnpy.database import get_database_manager as vnpy_get_db
+from app.external.database import DatabaseManager, get_database_manager
 
 if TYPE_CHECKING:
     from app.services.ibkr_scanner_service import IBKRScannerService
@@ -21,24 +20,18 @@ def get_config():
     return config
 
 
-def get_database_manager() -> DatabaseManager:
+def get_db() -> DatabaseManager:
     """Get database manager for FastAPI dependency injection.
 
     Returns:
-        DatabaseManager singleton (from vn.py)
+        DatabaseManager singleton
     """
-    return vnpy_get_db()
+    return get_database_manager()
 
 
 def get_gateway_service():
-    """Get gateway service for FastAPI dependency injection.
-
-    Returns:
-        GatewayService singleton (module-level)
-    """
-    from app.services.gateway_service import gateway_service
-
-    return gateway_service
+    """Get gateway service for FastAPI dependency injection."""
+    pass
 
 
 def get_health_checker():

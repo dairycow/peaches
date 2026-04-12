@@ -27,18 +27,6 @@ class LoggingConfig(BaseSettings):
     json_format: bool = Field(default=True, description="Use JSON log format")
 
 
-class IBGatewayConfig(BaseSettings):
-    """IB Gateway connection configuration."""
-
-    host: str = Field(default="ib-gateway", description="IB Gateway host")
-    port: int = Field(default=4004, ge=1, le=65535, description="IB Gateway port")
-    client_id: int = Field(default=1, ge=1, description="Client ID for IB API")
-    connect_timeout: int = Field(default=30, ge=1, description="Connection timeout in seconds")
-    auto_reconnect: bool = Field(default=True, description="Enable auto-reconnect")
-    reconnect_interval: int = Field(default=5, ge=1, description="Reconnect interval in seconds")
-    max_reconnect_attempts: int = Field(default=10, ge=1, description="Maximum reconnect attempts")
-
-
 class HealthCheckConfig(BaseSettings):
     """Health check configuration."""
 
@@ -191,7 +179,6 @@ class Config(BaseSettings):
 
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
-    gateway: IBGatewayConfig = Field(default_factory=IBGatewayConfig)
     health: HealthCheckConfig = Field(default_factory=HealthCheckConfig)
     historical_data: HistoricalDataConfig = Field(default_factory=HistoricalDataConfig)
     cooltrader: CoolTraderConfig = Field(default_factory=CoolTraderConfig)

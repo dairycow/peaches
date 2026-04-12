@@ -4,9 +4,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from loguru import logger
-from vnpy.trader.constant import Exchange, Interval
-from vnpy.trader.object import BarData
 
+from app.analysis.types import BarData, Exchange, Interval
 from app.scanners.gap.models import OpeningRange
 
 if TYPE_CHECKING:
@@ -35,7 +34,7 @@ class OpeningRangeTracker:
             sample_time: Time to sample (defaults to 10:05 AM AEDT)
 
         Returns:
-            Dictionary of symbol → opening range
+            Dictionary of symbol -> opening range
         """
         if sample_time is None:
             sample_time = self._get_default_sample_time()
@@ -56,7 +55,7 @@ class OpeningRangeTracker:
                     or_result = await self._calculate_or_from_bars(bars, sample_time)
                     result[symbol] = or_result
                     logger.debug(
-                        f"✓ {symbol} OR: ${or_result.orh:.2f} / ${or_result.orl:.2f} @ ${or_result.price:.2f}"
+                        f"{symbol} OR: ${or_result.orh:.2f} / ${or_result.orl:.2f} @ ${or_result.price:.2f}"
                     )
 
             except Exception as e:

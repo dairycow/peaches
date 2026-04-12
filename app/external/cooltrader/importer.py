@@ -7,10 +7,9 @@ from typing import TypedDict
 
 import polars as pl
 from loguru import logger
-from vnpy.trader.constant import Exchange, Interval
-from vnpy.trader.object import BarData
 
-from app.external.vnpy.database import DatabaseManager, get_database_manager
+from app.analysis.types import BarData, Exchange, Interval
+from app.external.database import DatabaseManager, get_database_manager
 
 
 class ImportResult(TypedDict):
@@ -108,7 +107,7 @@ class CSVImporter:
         return df.sort("date")
 
     def _convert_to_bars(self, df: pl.DataFrame) -> list[BarData]:
-        """Convert DataFrame to vn.py BarData objects.
+        """Convert DataFrame to BarData objects.
 
         Args:
             df: Input DataFrame with symbol column
@@ -131,7 +130,6 @@ class CSVImporter:
                     low_price=float(row["low"]),
                     close_price=float(row["close"]),
                     volume=int(row["volume"]),
-                    gateway_name="",
                 )
 
                 bars.append(bar)

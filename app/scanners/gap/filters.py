@@ -3,7 +3,8 @@
 from typing import TYPE_CHECKING
 
 from loguru import logger
-from vnpy.trader.constant import Exchange, Interval
+
+from app.analysis.types import Exchange, Interval
 
 if TYPE_CHECKING:
     pass
@@ -45,14 +46,14 @@ class PriceVolumeFilter:
                 if latest_price >= min_price:
                     filtered.append(symbol)
                     logger.debug(
-                        f"✓ {symbol} passes price filter: ${latest_price:.2f} >= ${min_price:.2f}"
+                        f"{symbol} passes price filter: ${latest_price:.2f} >= ${min_price:.2f}"
                     )
                 else:
                     logger.debug(
-                        f"✗ {symbol} fails price filter: ${latest_price:.2f} < ${min_price:.2f}"
+                        f"{symbol} fails price filter: ${latest_price:.2f} < ${min_price:.2f}"
                     )
 
-        logger.info(f"Price filter: {len(symbols)} → {len(filtered)} symbols")
+        logger.info(f"Price filter: {len(symbols)} -> {len(filtered)} symbols")
         return filtered
 
     async def filter_by_volume(self, symbols: list[str], min_volume: int = 100000) -> list[str]:
@@ -80,14 +81,14 @@ class PriceVolumeFilter:
                 if latest_volume >= min_volume:
                     filtered.append(symbol)
                     logger.debug(
-                        f"✓ {symbol} passes volume filter: {latest_volume:,} >= {min_volume:,}"
+                        f"{symbol} passes volume filter: {latest_volume:,} >= {min_volume:,}"
                     )
                 else:
                     logger.debug(
-                        f"✗ {symbol} fails volume filter: {latest_volume:,} < {min_volume:,}"
+                        f"{symbol} fails volume filter: {latest_volume:,} < {min_volume:,}"
                     )
 
-        logger.info(f"Volume filter: {len(symbols)} → {len(filtered)} symbols")
+        logger.info(f"Volume filter: {len(symbols)} -> {len(filtered)} symbols")
         return filtered
 
     async def apply_filters(

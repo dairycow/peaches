@@ -145,7 +145,7 @@ async def test_database_connection():
 ```
 
 - Test business logic, not frameworks
-- Avoid mocks for vn.py/FastAPI - use real components
+- Avoid mocks for FastAPI - use real components
 - Reset singletons between tests
 
 ## Key Files

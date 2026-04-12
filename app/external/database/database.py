@@ -1,0 +1,419 @@
+"""Database manager for bar data storage using peewee and SQLite."""
+
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import peewee
+from loguru import logger
+
+from app.analysis.types import BarData, Exchange, Interval
+from app.config import config
+
+database_proxy = peewee.DatabaseProxy()
+
+
+class DbBarData(peewee.Model):
+    """Peewee model for dbbardata table."""
+
+    symbol = peewee.CharField()
+    exchange = peewee.CharField()
+    datetime = peewee.DateTimeField()
+    interval = peewee.CharField()
+    volume = peewee.FloatField(default=0.0)
+    turnover = peewee.FloatField(default=0.0)
+    open_interest = peewee.FloatField(default=0.0)
+    open_price = peewee.FloatField()
+    high_price = peewee.FloatField()
+    low_price = peewee.FloatField()
+    close_price = peewee.FloatField()
+
+    class Meta:
+        database = database_proxy
+        table_name = "dbbardata"
+        indexes = ((("symbol", "exchange", "interval", "datetime"), True),)
+
+
+class DbBarOverview(peewee.Model):
+    """Peewee model for dbbaroverview table."""
+
+    symbol = peewee.CharField()
+    exchange = peewee.CharField()
+    interval = peewee.CharField()
+    count = peewee.IntegerField()
+    start = peewee.DateTimeField()
+    end = peewee.DateTimeField()
+
+    class Meta:
+        database = database_proxy
+        table_name = "dbbaroverview"
+        indexes = ((("symbol", "exchange", "interval"), True),)
+
+
+def _get_db_path() -> str:
+    configured = Path(config.database.path)
+    if configured.is_absolute():
+        return str(configured)
+    return str(configured)
+
+
+def initialise_database() -> str:
+    """Initialise the SQLite database and return its path.
+
+    Returns:
+        Database file path
+    """
+    db_path = _get_db_path()
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+    db = peewee.SqliteDatabase(
+        db_path,
+        pragmas={
+            "journal_mode": "wal",
+            "cache_size": -1024 * 64,
+            "foreign_keys": 1,
+        },
+    )
+    database_proxy.initialize(db)
+
+    db.connect(reuse_if_open=True)
+    db.create_tables([DbBarData, DbBarOverview])
+
+    return db_path
+
+
+class DatabaseManager:
+    """Database manager for bar data storage and retrieval."""
+
+    def __init__(self) -> None:
+        """Initialize database manager."""
+        self._db: peewee.SqliteDatabase | None = None
+
+    @property
+    def db(self) -> peewee.SqliteDatabase:
+        """Get database instance.
+
+        Returns:
+            SqliteDatabase instance
+
+        Raises:
+            RuntimeError: If database is not initialized
+        """
+        if self._db is None:
+            self._db = database_proxy.obj
+            if self._db is None:
+                raise RuntimeError("Database not initialised. Call initialise_database() first.")
+        return self._db
+
+    def save_bars(self, bars: list[BarData], stream: bool = False) -> bool:
+        """Save bar data to database.
+
+        Args:
+            bars: List of BarData objects to save
+            stream: If True, append without replacing existing data
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not bars:
+            return True
+
+        try:
+            rows = []
+            for bar in bars:
+                rows.append(
+                    {
+                        "symbol": bar.symbol,
+                        "exchange": str(bar.exchange),
+                        "datetime": bar.datetime,
+                        "interval": str(bar.interval),
+                        "volume": bar.volume,
+                        "turnover": 0.0,
+                        "open_interest": 0.0,
+                        "open_price": bar.open_price,
+                        "high_price": bar.high_price,
+                        "low_price": bar.low_price,
+                        "close_price": bar.close_price,
+                    }
+                )
+
+            if stream:
+                for row in rows:
+                    DbBarData.insert(row).on_conflict(
+                        conflict_target=[
+                            DbBarData.symbol,
+                            DbBarData.exchange,
+                            DbBarData.interval,
+                            DbBarData.datetime,
+                        ],
+                        update=row,
+                    ).execute()
+            else:
+                DbBarData.insert_many(rows).on_conflict(
+                    conflict_target=[
+                        DbBarData.symbol,
+                        DbBarData.exchange,
+                        DbBarData.interval,
+                        DbBarData.datetime,
+                    ],
+                    update=rows[0].__class__({}),
+                ).execute()
+
+            self._update_overview(bars[0].symbol, bars[0].exchange, bars[0].interval)
+            logger.info(f"Saved {len(bars)} bars to database")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving bars to database: {e}")
+            return False
+
+    def load_bars(
+        self,
+        symbol: str,
+        exchange: Exchange,
+        interval: Interval,
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> list[BarData]:
+        """Load bar data from database.
+
+        Args:
+            symbol: Symbol name
+            exchange: Exchange enum
+            interval: Interval enum
+            start: Start datetime (optional)
+            end: End datetime (optional)
+
+        Returns:
+            List of BarData objects
+        """
+        try:
+            query = DbBarData.select().where(
+                DbBarData.symbol == symbol,
+                DbBarData.exchange == str(exchange),
+                DbBarData.interval == str(interval),
+            )
+
+            if start:
+                query = query.where(DbBarData.datetime >= start)
+            if end:
+                query = query.where(DbBarData.datetime <= end)
+
+            query = query.order_by(DbBarData.datetime)
+
+            bars = []
+            for row in query:
+                bars.append(
+                    BarData(
+                        symbol=row.symbol,
+                        exchange=Exchange(row.exchange),
+                        interval=Interval(row.interval),
+                        datetime=row.datetime,
+                        open_price=row.open_price,
+                        high_price=row.high_price,
+                        low_price=row.low_price,
+                        close_price=row.close_price,
+                        volume=row.volume,
+                    )
+                )
+
+            logger.info(f"Loaded {len(bars)} bars for {symbol}.{exchange}-{interval}")
+            return bars
+        except Exception as e:
+            logger.error(f"Error loading bars from database: {e}")
+            return []
+
+    def get_overview(self) -> list[Any]:
+        """Get database overview of available bar data.
+
+        Returns:
+            List of DbBarOverview objects
+        """
+        try:
+            overview = list(DbBarOverview.select())
+            logger.info(f"Database contains {len(overview)} symbols")
+            return overview
+        except Exception as e:
+            logger.error(f"Error getting database overview: {e}")
+            return []
+
+    def _update_overview(
+        self, symbol: str, exchange: Exchange | str, interval: Interval | str
+    ) -> None:
+        """Update bar overview for a symbol.
+
+        Args:
+            symbol: Symbol name
+            exchange: Exchange
+            interval: Interval
+        """
+        try:
+            exchange_str = str(exchange)
+            interval_str = str(interval)
+
+            row = (
+                DbBarData.select()
+                .where(
+                    DbBarData.symbol == symbol,
+                    DbBarData.exchange == exchange_str,
+                    DbBarData.interval == interval_str,
+                )
+                .order_by(DbBarData.datetime)
+                .execute()
+            )
+
+            rows = list(row)
+            if not rows:
+                return
+
+            count = len(rows)
+            start = rows[0].datetime
+            end = rows[-1].datetime
+
+            DbBarOverview.insert(
+                symbol=symbol,
+                exchange=exchange_str,
+                interval=interval_str,
+                count=count,
+                start=start,
+                end=end,
+            ).on_conflict(
+                conflict_target=[
+                    DbBarOverview.symbol,
+                    DbBarOverview.exchange,
+                    DbBarOverview.interval,
+                ],
+                update={
+                    "count": count,
+                    "start": start,
+                    "end": end,
+                },
+            ).execute()
+        except Exception as e:
+            logger.error(f"Error updating overview: {e}")
+
+    def get_stats(self) -> dict[str, int | dict[str, int]]:
+        """Get database statistics.
+
+        Returns:
+            Dictionary with statistics
+        """
+        overview = self.get_overview()
+        total_bars = sum(item.count for item in overview)
+        unique_symbols = len({item.symbol for item in overview})
+
+        interval_count: dict[str, int] = {}
+        for item in overview:
+            interval_str = str(item.interval)
+            interval_count[interval_str] = interval_count.get(interval_str, 0) + 1
+
+        stats: dict[str, int | dict[str, int]] = {
+            "total_symbols": len(overview),
+            "unique_symbols": unique_symbols,
+            "total_bars": total_bars,
+            "interval_breakdown": interval_count,
+        }
+
+        return stats
+
+    def get_database_stats(self) -> dict[str, str | int | float]:
+        """Get database statistics for API.
+
+        Returns:
+            Dictionary with database stats including size
+        """
+        db_path = Path(config.database.path)
+        db_size = db_path.stat().st_size if db_path.exists() else 0
+
+        overview = self.get_overview()
+        total_bars = sum(item.count for item in overview)
+
+        return {
+            "db_path": str(db_path),
+            "db_size_bytes": db_size,
+            "db_size_mb": round(db_size / (1024 * 1024), 2),
+            "total_symbols": len(overview),
+            "total_bars": total_bars,
+        }
+
+    def get_database_overview(self) -> dict[str, int | list[dict[str, str | int | None]]]:
+        """Get database overview for API.
+
+        Returns:
+            Dictionary with symbol details
+        """
+        overview = self.get_overview()
+
+        return {
+            "total_symbols": len(overview),
+            "symbols": [
+                {
+                    "symbol": o.symbol,
+                    "exchange": str(o.exchange),
+                    "interval": str(o.interval),
+                    "count": o.count,
+                    "start": o.start.isoformat() if o.start else None,
+                    "end": o.end.isoformat() if o.end else None,
+                }
+                for o in overview
+            ],
+        }
+
+    def rebuild_overview(self) -> bool:
+        """Rebuild bar overview table from actual bar data.
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            logger.info("Rebuilding bar overview table")
+
+            DbBarOverview.delete().execute()
+            logger.info("Deleted existing bar overview records")
+
+            symbols = DbBarData.select(
+                DbBarData.symbol, DbBarData.exchange, DbBarData.interval
+            ).distinct()
+
+            for sym_row in symbols:
+                rows = list(
+                    DbBarData.select()
+                    .where(
+                        DbBarData.symbol == sym_row.symbol,
+                        DbBarData.exchange == sym_row.exchange,
+                        DbBarData.interval == sym_row.interval,
+                    )
+                    .order_by(DbBarData.datetime)
+                )
+
+                if not rows:
+                    continue
+
+                DbBarOverview.insert(
+                    symbol=sym_row.symbol,
+                    exchange=sym_row.exchange,
+                    interval=sym_row.interval,
+                    count=len(rows),
+                    start=rows[0].datetime,
+                    end=rows[-1].datetime,
+                ).execute()
+
+            logger.info("Successfully rebuilt bar overview table")
+            return True
+        except Exception as e:
+            logger.error(f"Error rebuilding bar overview: {e}")
+            return False
+
+
+_database_manager: DatabaseManager | None = None
+
+
+def get_database_manager() -> DatabaseManager:
+    """Get singleton database manager instance.
+
+    Returns:
+        DatabaseManager singleton instance
+    """
+    global _database_manager
+    if _database_manager is None:
+        _database_manager = DatabaseManager()
+    return _database_manager
