@@ -5,8 +5,6 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from vnpy.trader.constant import Exchange
-
 from app.events import EventBus
 from app.events.events import (
     AnnouncementGapScanCompletedEvent,

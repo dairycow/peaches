@@ -4,8 +4,8 @@ from datetime import datetime
 from typing import NamedTuple
 
 from loguru import logger
-from vnpy.trader.constant import Exchange, Interval
-from vnpy.trader.object import BarData
+
+from app.analysis.types import BarData, Exchange, Interval
 
 
 class OpeningRangeResult(NamedTuple):

@@ -6,7 +6,6 @@ from app.events.handlers.announcement_gap_handler import AnnouncementGapHandler
 from app.events.handlers.discord_handler import DiscordHandler
 from app.events.handlers.ibkr_scanner_handler import IBKRScannerHandler
 from app.events.handlers.import_handler import ImportHandler
-from app.events.handlers.strategy_handler import StrategyHandler
 
 if TYPE_CHECKING:
     pass
@@ -25,6 +24,5 @@ __all__ = [
     "DiscordHandler",
     "IBKRScannerHandler",
     "ImportHandler",
-    "StrategyHandler",
     "EventHandler",
 ]

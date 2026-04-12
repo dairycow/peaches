@@ -1,14 +1,13 @@
 """Announcement gap scanner for multi-condition filtering."""
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from loguru import logger
-from vnpy.trader.constant import Exchange, Interval
 
-from app.external.vnpy.database import get_database_manager
+from app.analysis.types import Exchange, Interval
+from app.external.database import get_database_manager
 from app.scanners.base import ScannerBase, ScanResult
 from app.scanners.gap.filters import PriceVolumeFilter
 from app.scanners.gap.gap_detector import GapDetector
@@ -17,21 +16,9 @@ from app.scanners.gap.opening_range import OpeningRangeTracker
 if TYPE_CHECKING:
     from ibind import IbkrClient
 
-    from app.external.vnpy.database import DatabaseManager
+    from app.external.database import DatabaseManager
 
 __all__ = ["AnnouncementGapScanner", "AnnouncementGapCandidate"]
-
-
-register_announcement: Callable[[str, datetime], None] | None = None
-
-try:
-    from app.strategies.announcement_gap_strategy import (
-        register_announcement as _ra,
-    )
-
-    register_announcement = _ra
-except ImportError:
-    pass
 
 
 @dataclass
@@ -132,10 +119,8 @@ class AnnouncementGapScanner(ScannerBase):
 
                 if candidate:
                     candidates.append(candidate)
-                    if register_announcement is not None:
-                        register_announcement(symbol, ann_time)
                     logger.info(
-                        f"✓ Candidate found: {symbol} gap={candidate.gap_pct:.2f}% "
+                        f"Candidate found: {symbol} gap={candidate.gap_pct:.2f}% "
                         f"price=${candidate.current_price:.2f} > 6M ${candidate.six_month_high:.2f}"
                     )
 
@@ -175,13 +160,13 @@ class AnnouncementGapScanner(ScannerBase):
         )
 
         if not bars or len(bars) < 2:
-            logger.debug(f"✗ {symbol}: Insufficient bar data")
+            logger.debug(f"{symbol}: Insufficient bar data")
             return None
 
         latest_bar = bars[-1]
 
         if latest_bar.close_price < min_price:
-            logger.debug(f"✗ {symbol}: Price ${latest_bar.close_price:.2f} < ${min_price:.2f}")
+            logger.debug(f"{symbol}: Price ${latest_bar.close_price:.2f} < ${min_price:.2f}")
             return None
 
         gap_pct = self._get_gap_from_ibkr(symbol)
@@ -195,14 +180,14 @@ class AnnouncementGapScanner(ScannerBase):
             logger.debug(f"{symbol}: Using CoolTrader gap ({gap_pct:.2f}%)")
 
         if gap_pct < min_gap_pct:
-            logger.debug(f"✗ {symbol}: Gap {gap_pct:.2f}% < {min_gap_pct}%")
+            logger.debug(f"{symbol}: Gap {gap_pct:.2f}% < {min_gap_pct}%")
             return None
 
         six_month_high = self._calculate_six_month_high(bars, lookback_months)
 
         if latest_bar.close_price <= six_month_high:
             logger.debug(
-                f"✗ {symbol}: Price ${latest_bar.close_price:.2f} <= 6M ${six_month_high:.2f}"
+                f"{symbol}: Price ${latest_bar.close_price:.2f} <= 6M ${six_month_high:.2f}"
             )
             return None
 
@@ -294,7 +279,7 @@ class AnnouncementGapScanner(ScannerBase):
             candidates: List of announcement gap candidates
 
         Returns:
-            Dictionary of symbol → opening range high
+            Dictionary of symbol -> opening range high
         """
         symbols = [c.symbol for c in candidates]
 

@@ -9,8 +9,6 @@ def test_bot_creation():
     """Test bot can be created."""
     bot = TradingBot()
     assert bot is not None
-    assert bot.gateway_service is not None
-    assert bot.strategy_service is not None
     assert bot.scheduler is None
     assert bot.event_bus is None
 

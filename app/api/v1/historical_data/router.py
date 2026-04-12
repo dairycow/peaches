@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.config import config
 from app.events.bus import get_event_bus
-from app.external.vnpy.database import get_database_manager
+from app.external.database import get_database_manager
 
 router = APIRouter(prefix="/import", tags=["historical-data"])
 

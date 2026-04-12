@@ -5,9 +5,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from loguru import logger
-from vnpy.trader.constant import Exchange, Interval
 
-from app.external.vnpy.database import get_database_manager
+from app.analysis.types import Exchange, Interval
+from app.external.database import get_database_manager
 from app.scanners.base import ScannerBase, ScanResult
 from app.scanners.gap.filters import PriceVolumeFilter
 from app.scanners.gap.gap_detector import GapDetector
@@ -21,7 +21,7 @@ from app.scanners.gap.models import (
 from app.scanners.gap.opening_range import OpeningRangeTracker
 
 if TYPE_CHECKING:
-    from app.external.vnpy.database import DatabaseManager
+    from app.external.database import DatabaseManager
 
 
 class GapScanner(ScannerBase):
@@ -201,7 +201,7 @@ class GapScanner(ScannerBase):
             candidates: List of gap candidates
 
         Returns:
-            Dictionary of symbol → opening range
+            Dictionary of symbol -> opening range
         """
         symbols = [c.symbol for c in candidates]
 
