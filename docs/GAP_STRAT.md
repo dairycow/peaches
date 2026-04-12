@@ -48,89 +48,46 @@ The **Announcement Gap Breakout Strategy** is an ASX-focused momentum strategy t
 
 ### High-Level Architecture
 
-```mermaid
-graph TB
-    subgraph "External Data Sources"
-        ASX[ASX Website<br/>todayAnns.do]
-        IB[Interactive Brokers Gateway]
-    end
-
-    subgraph "Peaches Bot Container"
-        subgraph "Scanner Layer"
-            Scanner[ASX Price-Sensitive Scanner]
-            Scheduler[ScannerScheduler<br/>Cron: 30 10 * * 1-5]
-            GapScanner[AnnouncementGapScanner]
-        end
-
-        subgraph "Strategy Layer"
-            Strategy[AnnouncementGapBreakoutStrategy<br/>CtaTemplate]
-            Tracker[ANNOUNCEMENT_TRACKER<br/>Global Dict]
-        end
-
-        subgraph "Trading Layer"
-            CTAEngine[CTA Engine<br/>vnpy_ctastrategy]
-            MainEngine[Main Engine<br/>vnpy]
-            GatewayService[Gateway Service]
-        end
-
-        subgraph "API Layer"
-            API[FastAPI<br/>Port 8080]
-            Router[AnnouncementGap Router]
-        end
-
-        subgraph "Database"
-            DB[(SQLite<br/>trading.db)]
-        end
-    end
-
-    ASX --> Scanner
-    Scheduler --> Scanner
-    Scanner --> GapScanner
-    GapScanner --> Tracker
-    Tracker --> Strategy
-    IB --> GatewayService
-    GatewayService --> MainEngine
-    MainEngine --> CTAEngine
-    Strategy --> CTAEngine
-    API --> Router
-    Router --> GapScanner
-    CTAEngine --> DB
-    GapScanner --> DB
+```
++---------------------------+     +--------------------------------+
+| External Data Sources     |     | Peaches Bot Container          |
+|                           |     |                                |
+| ASX Website               |     | Scanner Layer                  |
+| todayAnns.do              | --> |  ASX Price-Sensitive Scanner   |
+|                           |     |  ScannerScheduler              |
+|                           |     |   Cron: 30 10 * * 1-5          |
+|                           |     |  AnnouncementGapScanner       |
+|                           |     |                                |
+|                           |     | Strategy Layer                 |
+|                           |     |  AnnouncementGapBreakout       |
+|                           |     |  ANNOUNCEMENT_TRACKER          |
+|                           |     |                                |
+|                           |     | API Layer                      |
+|                           |     |  FastAPI Port 8080             |
+|                           |     |  AnnouncementGap Router        |
+|                           |     |                                |
+|                           |     | Database                      |
+|                           |     |  SQLite (trading.db)           |
++---------------------------+     +--------------------------------+
 ```
 
 ### Docker Infrastructure
 
-```mermaid
-graph TB
-    subgraph "Docker Network: trading"
-    subgraph "ib-gateway Container"
-        IBG[IB Gateway<br/>Port 4001:4003<br/>Port 4002:4004]
-    end
-
-        subgraph "peaches-bot Container"
-            FastAPI[FastAPI Server<br/>Port 8080]
-            Scheduler[Scheduler]
-            Scanner[Scanner]
-            Strategy[Strategy Module]
-        end
-    end
-
-    FastAPI --> IBG
-    Strategy --> IBG
-    FastAPI --> FastAPI
+```yaml
+# docker-compose.yml
+services:
+  peaches-bot:
+    build: .
+    ports: ["127.0.0.1:8080:8080"]
+    healthcheck:
+      test: curl -f http://localhost:8080/api/v1/health
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
 ```
 
-**Docker Services** (docker-compose.yml):
-
-| Service | Image | Ports | Health Check |
-|---------|-------|-------|--------------|
-| `ib-gateway` | ghcr.io/gnzsnz/ib-gateway:stable | 4001, 4002 | TCP to 4004 |
-| `peaches-bot` | Built from Dockerfile | 8080 | HTTP to /api/v1/health |
-
 **Volumes**:
-- `./config:/app/config:ro` - Configuration
-- `./app/strategies:/app/strategies:ro` - Strategy code (read-only)
-- `/opt/peaches/data:/app/data` - Data storage (historical, trading)
+- `./data:/app/data` - Data storage (historical, trading)
 - `./logs:/app/logs` - Logs
 
 ---
@@ -139,118 +96,55 @@ graph TB
 
 ### Startup Sequence
 
-```mermaid
-sequenceDiagram
-    participant Docker
-    participant Main
-    participant GatewayService
-    participant StrategyService
-    participant ScannerScheduler
-    participant CTAEngine
-    participant ASXScanner
-
-    Docker->>Main: Start container
-    Main->>Main: startup()
-    Main->>GatewayService: start()
-    GatewayService->>GatewayService: Connect to IB Gateway
-    Main->>StrategyService: start()
-    StrategyService->>CTAEngine: Initialize
-    Note over CTAEngine: Only loads ASXMomentumStrategy<br/>NOT AnnouncementGapStrategy
-    Main->>ScannerScheduler: start()
-    ScannerScheduler->>ASXScanner: Schedule scan<br/>Cron: 30 10 * * 1-5
-    Main->>Main: Application ready
-```
+1. Container starts
+2. `startup()` runs
+3. EventBus starts
+4. Strategy service initialises (only ASXMomentumStrategy loaded)
+5. ScannerScheduler starts
+6. Application ready
 
 ### Daily Scan Flow (Announcement Registration)
 
-```mermaid
-sequenceDiagram
-    participant Scheduler
-    participant ASXScanner
-    participant NotificationSvc
-    participant GapScanner
-    participant Tracker
-    participant Discord
-
-    Note over Scheduler: 10:00:30 AM AEST weekdays
-    Scheduler->>ASXScanner: fetch_announcements()
-    ASXScanner->>ASXScanner: Fetch from ASX website
-    ASXScanner->>ASXScanner: Parse HTML, filter "pricesens"
-    ASXScanner-->>Scheduler: ScanResult
-
-    loop For each announcement
-        ASXScanner->>NotificationSvc: Send Discord webhook
-        NotificationSvc->>Discord: Post announcement
-        ASXScanner->>GapScanner: scan_candidates()
-        GapScanner->>GapScanner: Load bars from DB
-        GapScanner->>GapScanner: Check gap, 6M high, price
-        alt Candidate passes all filters
-            GapScanner->>Tracker: register_announcement(symbol, time)
-            Note over Tracker: Add to ANNOUNCEMENT_TRACKER
-        end
-    end
 ```
-
-### Trading Signal Flow (If Strategy Was Loaded)
-
-```mermaid
-sequenceDiagram
-    participant MainEngine
-    participant Strategy
-    participant Tracker
-    participant OrderSystem
-
-    MainEngine->>Strategy: on_bar(bar)
-
-    alt New day
-        Strategy->>Strategy: Reset day_low, ORH, ORL
-    end
-
-    Strategy->>Strategy: Update opening range (10:00-10:05)
-    Strategy->>Strategy: Update day low
-    Strategy->>Strategy: Check entry conditions
-
-    Strategy->>Tracker: check_announcement_today(symbol, 24h)
-    Tracker-->>Strategy: True/False
-
-    alt All entry conditions met
-        Strategy->>Strategy: _on_entry()
-        Strategy->>OrderSystem: Send STOP order at ORH
-        OrderSystem-->>Strategy: Order placed
-        Note over Strategy: entry_triggered = True
-    end
-
-    alt Entry triggered and exit conditions met
-        Strategy->>Strategy: _on_exit()
-        Strategy->>OrderSystem: Sell position
-    end
+10:00:30 AM AEST weekdays
+    |
+    v
+ASXScanner.fetch_announcements()
+    |
+    v
+Fetch from ASX website
+Parse HTML, filter "pricesens"
+    |
+    v
+For each announcement:
+    +-> Send Discord webhook notification
+    +-> GapScanner.scan_candidates()
+        +-> Load bars from DB
+        +-> Check gap, 6M high, price
+        +-> If candidate passes all filters:
+            +-> register_announcement(symbol, time)
+                (Added to ANNOUNCEMENT_TRACKER)
 ```
 
 ### API Trigger Flow (Manual Scan)
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant API
-    participant Router
-    participant GapService
-    participant ASXScanner
-    participant GapScanner
-    participant Tracker
-
-    User->>API: POST /api/v1/announcement-gap/scan
-    API->>Router: Forward request
-    Router->>GapService: get_announcement_gap_strategy_service()
-    GapService->>ASXScanner: Fetch ASX announcements
-    ASXScanner-->>GapService: Announcements
-    GapService->>GapScanner: scan_candidates()
-    GapScanner->>GapScanner: Evaluate each symbol
-    alt Candidate passes
-        GapScanner->>Tracker: register_announcement(symbol, time)
-    end
-    GapService-->>Router: Candidates list
-    Router-->>API: ScanResponse
-    API-->>User: JSON response
+```
+POST /api/v1/announcement-gap/scan
+    |
+    v
+GapService.get_announcement_gap_strategy_service()
+    |
+    v
+ASXScanner.fetch_announcements()
+    |
+    v
+GapScanner.scan_candidates()
+    +-> Evaluate each symbol
+    +-> If candidate passes:
+        +-> register_announcement(symbol, time)
+    |
+    v
+ScanResponse (candidates list)
 ```
 
 ---
@@ -266,36 +160,7 @@ sequenceDiagram
 | `register_announcement()` | `app/strategies/announcement_gap_strategy.py:25` | Global registration function |
 | `check_announcement_today()` | `app/strategies/announcement_gap_strategy.py:36` | Check for recent announcement |
 | `run_scan()` | `app/scheduler/scanner_scheduler.py:84` | Scheduled scan job |
-| `scan_candidates()` | `app/scanner/announcement_gap_scanner.py:68` | Candidate scanner |
-
-### Strategy Class Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Instantiated: __init__(cta_engine, strategy_name, vt_symbol, setting)
-    Instantiated --> Initialized: on_init()
-    Initialized --> Started: on_start()
-    Started --> Running: Receiving bars/ticks
-    Running --> Stopped: on_stop()
-    Stopped --> [*]
-
-    note right of Instantiated
-        Called by CTAEngine.add_strategy()
-        Sets default parameters
-        Initialises bar_buffer
-    end note
-
-    note right of Started
-        Only if loaded by CTA Engine
-        Currently NOT loaded
-    end note
-
-    note right of Running
-        on_bar() called for each bar
-        Checks entry/exit conditions
-        Sends orders
-    end note
-```
+| `scan_candidates()` | `app/scanners/gap/announcement_gap_scanner.py` | Candidate scanner |
 
 ### Current Strategy Loading Status
 
@@ -320,21 +185,22 @@ cta_engine.add_strategy(
 
 ```bash
 # Gap scanner configuration
-SCANNER__GAP_THRESHOLD=3.0        # Not used by strategy
-SCANNER__MIN_PRICE=1.0            # Not used by strategy
-SCANNER__MIN_VOLUME=100000        # Not used by strategy
+SCANNER__GAP_THRESHOLD=3.0
+SCANNER__MIN_PRICE=1.0
+SCANNER__MIN_VOLUME=100000
+SCANNER__MAX_RESULTS=50
 SCANNER__OPENING_RANGE_TIME="10:05"
-SCANNER__ENABLE_SCANNER=false     # API scanner disabled
+SCANNER__ENABLE_SCANNER=false
 
 # ASX scanner configuration
 SCANNERS__ENABLED=true
-SCANNERS__ASX__SCAN_SCHEDULE="30 10 * * 1-5"  # 10:00:30 AM AEST weekdays
+SCANNERS__ASX__SCAN_SCHEDULE="30 10 * * 1-5"
 SCANNERS__ASX__URL="https://www.asx.com.au/asx/v2/statistics/todayAnns.do"
 SCANNERS__ASX__TIMEOUT=10
 
 # Strategy triggers
 SCANNERS__TRIGGERS__ENABLED=true
-SCANNERS__TRIGGERS__STRATEGIES="asx_momentum"  # Only triggers ASXMomentumStrategy
+SCANNERS__TRIGGERS__STRATEGIES="asx_momentum"
 ```
 
 ### Strategy Default Parameters
@@ -359,36 +225,21 @@ DEFAULT_PARAMETERS = {
 
 ### Announcement Tracking
 
-```mermaid
-graph LR
-    A[ASX Scanner] --> B[Gap Scanner]
-    B -->|Candidate passes filters| C[register_announcement]
-    C --> D[ANNOUNCEMENT_TRACKER<br/>dict[symbol, datetime]]
-    D --> E[Strategy checks entry]
-    E --> F[check_announcement_today]
-    F -->|symbol in tracker & < 24h| G[Return True]
 ```
-
-**Tracker Structure**:
-```python
-ANNOUNCEMENT_TRACKER: dict[str, datetime] = {
-    "BHP": datetime(2026, 1, 22, 10, 0, 30),
-    "CBA": datetime(2026, 1, 22, 9, 45, 0),
-}
+ASX Scanner -> Gap Scanner -> Candidate passes filters -> register_announcement
+    -> ANNOUNCEMENT_TRACKER (dict[symbol, datetime])
+    -> Strategy checks entry -> check_announcement_today
+    -> symbol in tracker & < 24h -> Return True
 ```
 
 ### Database Access
 
-```mermaid
-graph TB
-    GapScanner[Gap Scanner] --> DB[SQLite Database]
-    Strategy[Strategy] --> DB
-    DB -->|load_bars| GapScanner
-    DB -->|save_bars| Strategy
+```
+Gap Scanner -> SQLite Database
+Strategy -> SQLite Database
 
-    subgraph "Database Tables"
-        Bars[BarData<br/>symbol, interval, open, high, low, close, volume]
-    end
+Tables:
+  BarData (symbol, interval, open, high, low, close, volume)
 ```
 
 ---
@@ -452,9 +303,9 @@ graph TB
 
 1. **Not loaded in CTA Engine**: `strategy_service.py` only loads `ASXMomentumStrategy`. The announcement gap strategy is never initialised or started.
 
-2. **No real-time market data**: The strategy requires live bar data (`on_bar()` callbacks). While the IB Gateway is running, the strategy isn't subscribed to receive data.
+2. **No real-time market data**: The strategy requires live bar data (`on_bar()` callbacks).
 
-3. **Missing strategy instance**: `AnnouncementGapBreakoutStrategy` must be added to the CTA engine with a `vt_symbol` (e.g., "BHP-STK-ASX").
+3. **Missing strategy instance**: `AnnouncementGapBreakoutStrategy` must be added to the CTA engine with a `vt_symbol`.
 
 4. **No multi-symbol support**: The current implementation is single-symbol. To scan multiple symbols, you'd need one strategy instance per symbol.
 
@@ -467,55 +318,16 @@ graph TB
 - `register_announcement()` populates `ANNOUNCEMENT_TRACKER`
 - API endpoints work for manual scanning
 
-### Q: How to make it trade actively?
-
-**A: Required changes**:
-
-1. **Load strategy into CTA Engine** (`app/services/strategy_service.py`):
-   ```python
-   cta_engine.add_strategy(
-       "AnnouncementGapBreakoutStrategy",
-       "announcement_gap",
-       "BHP-STK-ASX",  # Add per symbol
-       DEFAULT_PARAMETERS,
-   )
-   ```
-
-2. **Multi-symbol support**:
-   - Create strategy instances for each candidate
-   - Dynamically add strategies based on scan results
-
-3. **Market data subscription**:
-   - Ensure CTA engine subscribes to bars for each symbol
-   - Verify IB Gateway provides real-time data
-
-4. **Enable trading**:
-   - Set IB Gateway to live mode (currently paper trading)
-   - Ensure account has sufficient funds
-
-### Q: How does it fit with Docker infrastructure?
-
-**A: Integration points**:
-
-| Component | Status |
-|-----------|--------|
-| IB Gateway | Running, connected to peaches-bot |
-| CTA Engine | Running (only ASXMomentumStrategy) |
-| Scanner Scheduler | Running, scans ASX at 10:00:30 AM |
-| Announcement Tracker | Working, in-memory dict |
-| API Endpoints | Available, scanner disabled by default |
-
 ### Q: What are the dependencies?
 
 **A: External and internal dependencies**:
 
 **External**:
 - ASX website (todayAnns.do) for announcements
-- IB Gateway for market data and order execution
+- CoolTrader for historical bar data
 - SQLite database for historical bar data
 
 **Internal**:
-- vnpy framework (CtaTemplate, CtaEngine)
 - Loguru for logging
 - BeautifulSoup for HTML parsing
 
@@ -540,52 +352,18 @@ graph TB
 **A: Testing approaches**:
 
 1. **Manual scan via API**:
-   ```bash
-   curl -X POST http://localhost:8080/api/v1/announcement-gap/scan \
-     -H "Content-Type: application/json" \
-     -d '{"min_price": 0.20, "min_gap_pct": 0.0, "lookback_months": 6}'
-   ```
+    ```bash
+    curl -X POST http://localhost:8080/api/v1/announcement-gap/scan \
+      -H "Content-Type: application/json" \
+      -d '{"min_price": 0.20, "min_gap_pct": 0.0, "lookback_months": 6}'
+    ```
 
-2. **Backtesting**: Use peaches-analysis CLI (if available)
+2. **Backtesting**: Use peaches-analysis CLI
 
-3. **Paper trading**: Set IB Gateway to paper mode and load strategy
-
-4. **Check logs**:
-   ```bash
-   docker logs peaches-bot
-   ```
-
-### Q: How is the announcement tracker populated?
-
-**A: Two paths**:
-
-1. **Scheduled scan** (automatic):
-   - ScannerScheduler runs at 10:00:30 AM
-   - ASXPriceSensitiveScanner fetches announcements
-   - AnnouncementGapScanner filters candidates
-   - Calls `register_announcement()` for each candidate
-
-2. **Manual API call**:
-   - POST to `/api/v1/announcement-gap/scan`
-   - Same flow as scheduled scan
-
-### Q: What happens when the strategy checks for announcements?
-
-**A: Check logic** (`check_announcement_today()`):
-
-```python
-def check_announcement_today(symbol: str, lookback_hours: int = 24) -> bool:
-    if symbol not in ANNOUNCEMENT_TRACKER:
-        return False
-
-    announcement_time = ANNOUNCEMENT_TRACKER[symbol]
-    cutoff = datetime.now() - timedelta(hours=lookback_hours)
-
-    return announcement_time >= cutoff
-```
-
-- Returns `True` if symbol in tracker AND announcement < 24 hours ago
-- Returns `False` otherwise
+3. **Check logs**:
+    ```bash
+    docker logs peaches-bot
+    ```
 
 ---
 
@@ -594,10 +372,11 @@ def check_announcement_today(symbol: str, lookback_hours: int = 24) -> bool:
 | File | Purpose |
 |------|---------|
 | `app/strategies/announcement_gap_strategy.py` | Strategy implementation |
-| `app/scanner/announcement_gap_scanner.py` | Candidate scanner |
-| `app/scanners/asx_price_sensitive.py` | ASX announcement fetcher |
+| `app/scanners/gap/announcement_gap_scanner.py` | Candidate scanner |
+| `app/scanners/asx/asx_price_sensitive.py` | ASX announcement fetcher |
 | `app/scheduler/scanner_scheduler.py` | Scheduled scan job |
 | `app/services/strategy_service.py` | CTA engine (strategy loading) |
+| `app/services/announcement_gap_strategy_service.py` | Gap strategy orchestration service |
 | `app/api/v1/announcement_gap/router.py` | API endpoints |
 | `docker-compose.yml` | Docker infrastructure |
 | `app/config.py` | Configuration |
@@ -610,6 +389,5 @@ The Announcement Gap Breakout Strategy is a well-designed momentum strategy with
 
 - **Working parts**: ASX scanner, candidate filtering, announcement tracking, API endpoints
 - **Missing parts**: Strategy loading into CTA engine, market data subscription, multi-symbol support
-- **To enable**: Load strategy instance per symbol, subscribe to market data, ensure IB Gateway in live mode
 
 The strategy is production-ready from a code quality standpoint but requires integration work to become an active trading system.

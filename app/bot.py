@@ -60,7 +60,6 @@ class TradingBot:
 
             announcement_gap_strategy_service = AnnouncementGapStrategyService(
                 asx_scanner_config=asx_scanner_config,
-                ibkr_config=config.ibkr_scanner,
                 min_price=config.announcement_gap_strategy.min_price,
                 min_gap_pct=config.announcement_gap_strategy.min_gap_pct,
                 lookback_months=config.announcement_gap_strategy.lookback_months,

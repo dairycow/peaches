@@ -1,8 +1,6 @@
 # Peaches Trading Bot
 
-Trading bot for vn.py running in Docker with Interactive Brokers.
-
-**Optimized for ASX trading** with IB Gateway.
+ASX-focused trading bot for announcement gap scanning and analysis.
 
 ## Quick Start
 
@@ -12,8 +10,6 @@ cd peaches
 cp .env.example .env
 
 # Edit .env with your credentials
-# TWS_USERID=your_ibkr_username
-# TWS_PASSWORD=your_ibkr_password
 # COOLTRADER_USERNAME=your_cooltrader_username
 # COOLTRADER_PASSWORD=your_cooltrader_password
 
@@ -23,8 +19,6 @@ docker compose up -d
 # Check health
 curl http://localhost:8080/api/v1/health
 ```
-
-**Important**: Ensure your IBKR account has ASX data subscription active (Account Management → Market Data Subscriptions).
 
 ## Development
 
@@ -57,7 +51,7 @@ docker compose logs -f
 
 Peaches uses a hybrid service-oriented + event-driven architecture:
 
-- **Services Layer**: Core business logic (GatewayService, NotificationService, etc.)
+- **Services Layer**: Core business logic (NotificationService, etc.)
 - **Event Handlers Layer**: Coordinate services via EventBus
 - **EventBus**: Async publish/subscribe for decoupled communication
 
@@ -69,39 +63,24 @@ Peaches uses a hybrid service-oriented + event-driven architecture:
 
 **Event Flow**:
 ```
-Scheduler → EventBus.publish(ScanStartedEvent)
-ScannerService → EventBus.publish(AnnouncementFoundEvent)
-    ↓
+Scheduler -> EventBus.publish(ScanStartedEvent)
+ScannerService -> EventBus.publish(AnnouncementFoundEvent)
+    |
 EventBus
-    ├→ DiscordHandler → NotificationService.send_discord_webhook()
-    └→ StrategyHandler → StrategyTriggerService.trigger_strategies()
+    |-> DiscordHandler -> NotificationService.send_discord_webhook()
+    +-> StrategyHandler -> StrategyTriggerService.trigger_strategies()
 ```
 
 ## Configuration
 
-**ASX Symbol Format**: `{SYMBOL}-{TYPE}-{EXCHANGE}`
-```yaml
-# Direct ASX routing (recommended)
-vt-symbol: "BHP-STK-ASX"    # BHP Group
-vt-symbol: "CBA-STK-ASX"    # Commonwealth Bank
-
-# SMART routing (multi-market)
-vt-symbol: "BHP-STK-SMART"
-```
-
 **Key Environment Variables** (.env):
-- `TWS_USERID` - IBKR username
-- `TWS_PASSWORD` - IBKR password
-- `TRADING_MODE` - `paper` or `live`
 - `COOLTRADER_USERNAME` - CoolTrader username
 - `COOLTRADER_PASSWORD` - CoolTrader password
-- `IB_GATEWAY_PORT` - Default `4004`
 - `LOG_LEVEL` - `INFO`
-- `AUTO_RESTART_TIME` - Daily IB Gateway restart time (HH:MM AM/PM)
 
 ## API Endpoints
 
-**Health**: `GET /api/v1/health`, `GET /api/v1/health/gateway`, `GET /api/v1/health/ready`, `GET /api/v1/health/live`
+**Health**: `GET /api/v1/health`, `GET /api/v1/health/ready`, `GET /api/v1/health/live`
 
 **Data Import**:
 - `POST /api/v1/import/download/trigger` - Trigger CoolTrader CSV download
@@ -132,7 +111,7 @@ cd /opt/peaches
 
 Deployment pulls from `origin/main`, validates secrets, rebuilds images, and restarts containers.
 
-**Automatic**: Push to `main` triggers CI/CD pipeline (build → test → lint → deploy to VPS).
+**Automatic**: Push to `main` triggers CI/CD pipeline (build -> test -> lint -> deploy to VPS).
 
 ## Monitoring
 
@@ -149,7 +128,7 @@ watch -n 5 curl -s http://localhost:8080/api/v1/health | jq
 
 Automatic pipeline (AEST):
 - 9:55 AM - Download CSV from CoolTrader
-- 10:05 AM - Import to vn.py database
+- 10:05 AM - Import to database
 
 **Manual**:
 ```bash
@@ -159,30 +138,6 @@ curl http://localhost:8080/api/v1/import/database/stats
 
 CSV format: `symbol,date,open,high,low,close,volume` (date: `%d/%m/%Y`)
 
-## Troubleshooting
-
-**IBC Login Issues**:
-- Check logs: `docker compose logs ib-gateway | grep -i "error\|fail\|login"`
-- Set `AUTO_RESTART_TIME` to daily restart (e.g., 04:00 AM)
-
-**No ASX Market Data**:
-- Verify IBKR account has "Australian Securities" subscription
-- Check symbol format: `BHP-STK-ASX` (not `BHP-ASX` or `BHP.STK-ASX`)
-
-**Connection Issues**:
-```bash
-docker compose logs ib-gateway
-docker compose logs peaches-bot
-docker exec ib-gateway timeout 2 bash -c '</dev/tcp/localhost/4004'
-```
-
-**High Resource Usage**:
-- Check: `docker stats`
-- Adjust: `JAVA_HEAP_SIZE=1024` in .env
-- Reduce logging: `LOG_LEVEL=WARNING`
-
 ## Support
 
-- vn.py Documentation: https://www.vnpy.com/docs
-- IB Gateway Docker: https://github.com/gnzsnz/ib-gateway-docker
 - AGENTS.md - Detailed development guidelines

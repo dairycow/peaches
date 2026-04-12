@@ -33,8 +33,6 @@ dependencies = [
     "lxml>=6.0.2",
     "requests>=2.31.0",
     "aiohttp>=3.11.0",
-    "pycryptodome>=3.21.0",
-    "ibind[oauth]>=0.1.21",
 ]
 
 [build-system]
@@ -83,7 +81,6 @@ module = [
     "bs4.*",
     "requests.*",
     "aiohttp.*",
-    "ibind.*",
 ]
 ignore_missing_imports = true
 

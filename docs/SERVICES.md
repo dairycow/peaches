@@ -4,69 +4,39 @@
 
 Peaches uses a **service-oriented architecture** with **event-driven communication**.
 
-- **Services Layer**: Core business logic (GatewayService, NotificationService, etc.)
+- **Services Layer**: Core business logic (NotificationService, etc.)
 - **Event Handlers Layer**: Coordinate services via EventBus
 - **EventBus**: Async publish/subscribe for decoupled communication
 
 ## Core Services
 
-### Gateway Service
-
-**File**: `app/services/gateway_service.py:12`
-
-Manages IB Gateway connection lifecycle.
-
-**Responsibilities**:
-- Initialise IB Gateway connection
-- Monitor connection health
-- Auto-reconnect on failure
-- Health check loop
-
-**Methods**:
-
-| Method | Description |
-|--------|-------------|
-| `start()` | Initialise IB Gateway connection |
-| `stop()` | Stop IB Gateway connection |
-| `health_check_loop()` | Run periodic health checks |
-
-**Usage**:
-```python
-from app.services.gateway_service import gateway_service
-
-await gateway_service.start()
-# ... application runs ...
-await gateway_service.stop()
-```
-
 ### Health Service
 
 **File**: `app/services/health_service.py:9`
 
-Monitors application health and gateway status.
+Monitors application health and connection status.
 
 **Responsibilities**:
-- Track gateway connection status
+- Track connection status
 - Count consecutive failures
 - Calculate health status (healthy, degraded, unhealthy)
 - Track uptime
 
 **Health Statuses**:
-- `HEALTHY` - Gateway connected, no recent failures
-- `DEGRADED` - Gateway disconnected but within failure threshold
+- `HEALTHY` - Connected, no recent failures
+- `DEGRADED` - Disconnected but within failure threshold
 - `UNHEALTHY` - Exceeded consecutive failure threshold
 
 **Methods**:
 
 | Method | Description |
 |--------|-------------|
-| `set_gateway_status(connected)` | Update gateway status |
+| `set_gateway_status(connected)` | Update connection status |
 | `get_status()` | Get current health status |
 | `get_uptime()` | Get application uptime in seconds |
 
 **API Endpoints**:
 - `GET /api/v1/health` - Overall health status
-- `GET /api/v1/health/gateway` - Gateway connection details
 - `GET /api/v1/health/ready` - Readiness check
 - `GET /api/v1/health/live` - Liveness check
 
@@ -117,7 +87,7 @@ TRIGGERS__STRATEGIES="asx_momentum,another_strategy"
 
 **File**: `app/services/scanner_service.py:11`
 
-**Refactored**: Orchestrates announcement scanning and publishes events.
+Orchestrates announcement scanning and publishes events.
 
 **Responsibilities**:
 - Run ASX announcement scanner
@@ -131,7 +101,7 @@ TRIGGERS__STRATEGIES="asx_momentum,another_strategy"
 |--------|-------------|
 | `scan()` | Run scanner and publish events |
 
-## Event Handlers (NEW)
+## Event Handlers
 
 ### DiscordHandler
 
@@ -183,6 +153,12 @@ Executes CoolTrader download and CSV import logic.
 - `AnnouncementFoundEvent` - Individual announcement discovered
 - `ScanCompletedEvent` - Scan finished with results
 
+### Announcement Gap Events
+
+- `AnnouncementGapScanStartedEvent` - Gap scan initiated
+- `AnnouncementGapCandidateFoundEvent` - Candidate found
+- `AnnouncementGapScanCompletedEvent` - Gap scan finished
+
 ### Data Import Events
 
 - `DownloadStartedEvent` - Download initiated
@@ -194,18 +170,18 @@ Executes CoolTrader download and CSV import logic.
 
 **Startup Sequence**:
 1. EventBus starts
-2. Services initialize (Gateway, Health, Notification, StrategyTrigger)
+2. Services initialize (Health, Notification, StrategyTrigger)
 3. Event handlers register with EventBus
 4. SchedulerService starts (publishes events on schedule)
 
 **Runtime Flow**:
 ```
-SchedulerService → EventBus.publish(ScanStartedEvent)
-ScannerService → EventBus.publish(AnnouncementFoundEvent)
-    ↓
+SchedulerService -> EventBus.publish(ScanStartedEvent)
+ScannerService -> EventBus.publish(AnnouncementFoundEvent)
+    |
 EventBus
-    ├→ DiscordHandler → NotificationService.send_discord_webhook()
-    └→ StrategyHandler → StrategyTriggerService.trigger_strategies()
+    |-> DiscordHandler -> NotificationService.send_discord_webhook()
+    +-> StrategyHandler -> StrategyTriggerService.trigger_strategies()
 ```
 
 ## Configuration
@@ -213,19 +189,9 @@ EventBus
 All services configured in `app/config.py` using Pydantic Settings (environment variables):
 
 ```bash
-# IB Gateway
-GATEWAY__HOST="ib-gateway"
-GATEWAY__PORT=4004
-GATEWAY__CLIENT_ID=1
-GATEWAY__CONNECT_TIMEOUT=30
-GATEWAY__AUTO_RECONNECT=true
-GATEWAY__RECONNECT_INTERVAL=5
-GATEWAY__MAX_RECONNECT_ATTEMPTS=10
-
 # Health checks
 HEALTH__ENABLED=true
 HEALTH__INTERVAL_SECONDS=30
-HEALTH__GATEWAY_TIMEOUT=5
 HEALTH__UNHEALTHY_THRESHOLD=3
 
 # ASX Scanner
@@ -241,7 +207,6 @@ SCANNERS__TRIGGERS__ENABLED=true
 
 ## Related Files
 
-- Gateway: `app/gateway.py`, `app/gateway_scanner.py`
 - Scanner: `app/scanner/`, `app/scanners/`
 - Strategies: `app/strategies/`, `app/analysis/strategies/`
 - Configuration: `app/config.py`

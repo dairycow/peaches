@@ -1,14 +1,10 @@
 """Event handlers for EventBus."""
 
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
 from app.events.handlers.announcement_gap_handler import AnnouncementGapHandler
 from app.events.handlers.discord_handler import DiscordHandler
-from app.events.handlers.ibkr_scanner_handler import IBKRScannerHandler
 from app.events.handlers.import_handler import ImportHandler
-
-if TYPE_CHECKING:
-    pass
 
 
 class EventHandler(Protocol):
@@ -22,7 +18,6 @@ class EventHandler(Protocol):
 __all__ = [
     "AnnouncementGapHandler",
     "DiscordHandler",
-    "IBKRScannerHandler",
     "ImportHandler",
     "EventHandler",
 ]

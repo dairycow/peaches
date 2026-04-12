@@ -16,7 +16,6 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
-      - /opt/oauth_keys:/opt/oauth_keys:ro
     networks:
       - trading
     healthcheck:

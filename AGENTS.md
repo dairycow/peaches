@@ -57,8 +57,8 @@ _service: Service | None = None
 
 ### Error Handling
 ```python
-class IBKRWebAPIError(Exception):
-    """Base exception for IBKR web API errors."""
+class AnalysisError(Exception):
+    """Base exception for analysis errors."""
 
 try:
     await operation()
