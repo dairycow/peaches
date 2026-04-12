@@ -14,8 +14,6 @@ from app.scanners.gap.gap_detector import GapDetector
 from app.scanners.gap.opening_range import OpeningRangeTracker
 
 if TYPE_CHECKING:
-    from ibind import IbkrClient
-
     from app.external.database import DatabaseManager
 
 __all__ = ["AnnouncementGapScanner", "AnnouncementGapCandidate"]
@@ -47,16 +45,13 @@ class AnnouncementGapScanner(ScannerBase):
     def __init__(
         self,
         db_manager: "DatabaseManager | None" = None,
-        ibkr_client: "IbkrClient | None" = None,
     ) -> None:
         """Initialize announcement gap scanner.
 
         Args:
             db_manager: Database manager instance (optional, will create if None)
-            ibkr_client: IBKR client for real-time gap data (optional)
         """
         self.db_manager = db_manager or get_database_manager()
-        self.ibkr_client = ibkr_client
         self.gap_detector = GapDetector(self.db_manager)
         self.price_volume_filter = PriceVolumeFilter(self.db_manager)
         self.or_tracker = OpeningRangeTracker(self.db_manager)
@@ -169,15 +164,10 @@ class AnnouncementGapScanner(ScannerBase):
             logger.debug(f"{symbol}: Price ${latest_bar.close_price:.2f} < ${min_price:.2f}")
             return None
 
-        gap_pct = self._get_gap_from_ibkr(symbol)
-        if gap_pct is not None:
-            logger.debug(f"{symbol}: Using IBKR gap ({gap_pct:.2f}%)")
-        else:
-            previous_bar = bars[-2]
-            gap_pct = (
-                (latest_bar.open_price - previous_bar.close_price) / previous_bar.close_price * 100
-            )
-            logger.debug(f"{symbol}: Using CoolTrader gap ({gap_pct:.2f}%)")
+        previous_bar = bars[-2]
+        gap_pct = (
+            (latest_bar.open_price - previous_bar.close_price) / previous_bar.close_price * 100
+        )
 
         if gap_pct < min_gap_pct:
             logger.debug(f"{symbol}: Gap {gap_pct:.2f}% < {min_gap_pct}%")
@@ -200,52 +190,6 @@ class AnnouncementGapScanner(ScannerBase):
             announcement_time=ann_time,
             exchange=Exchange.LOCAL,
         )
-
-    def _get_gap_from_ibkr(self, symbol: str) -> float | None:
-        """Get today's gap percentage from IBKR.
-
-        Args:
-            symbol: ASX stock symbol
-
-        Returns:
-            Gap percentage if available, None otherwise
-        """
-        if not self.ibkr_client:
-            return None
-
-        try:
-            ibkr_symbol = f"{symbol}.ASX"
-            history = self.ibkr_client.marketdata_history_by_symbol(
-                symbol=ibkr_symbol,
-                period="3d",
-                bar="1d",
-            )
-
-            if not history or not history.data:
-                return None
-
-            bars = history.data.get("data", []) if isinstance(history.data, dict) else history.data
-            if not isinstance(bars, list) or len(bars) < 2:
-                return None
-
-            today = bars[-1]
-            yesterday = bars[-2]
-
-            if not isinstance(today, dict) or not isinstance(yesterday, dict):
-                return None
-
-            today_open = today.get("o")
-            prev_close = yesterday.get("c")
-
-            if today_open is None or prev_close is None or prev_close == 0:
-                return None
-
-            gap_pct = ((today_open - prev_close) / prev_close) * 100
-            return round(gap_pct, 2)
-
-        except Exception as e:
-            logger.debug(f"IBKR gap lookup failed for {symbol}: {e}")
-            return None
 
     def _calculate_six_month_high(self, bars: list, lookback_months: int = 6) -> float:
         """Calculate N-month high from bar data.

@@ -142,30 +142,6 @@ class AnnouncementGapStrategyConfig(BaseSettings):
     enabled: bool = Field(default=False, description="Enable announcement gap strategy")
 
 
-class IBKRScannerConfig(BaseSettings):
-    """IBKR scanner configuration using ibind OAuth."""
-
-    enabled: bool = Field(default=False, description="Enable IBKR scanner")
-    oauth_consumer_key: str = Field(default="", description="OAuth consumer key")
-    oauth_access_token: str = Field(default="", description="OAuth access token")
-    oauth_access_token_secret: str = Field(default="", description="Encrypted access token secret")
-    oauth_dh_prime: str = Field(default="", description="DH prime hex value")
-    signature_key_path: str = Field(
-        default="/opt/oauth_keys/signature_key.pem",
-        description="RSA signature key path",
-    )
-    encryption_key_path: str = Field(
-        default="/opt/oauth_keys/encryption_key.pem",
-        description="RSA encryption key path",
-    )
-    realm: str = Field(default="limited_poa", description="OAuth realm")
-    timeout: int = Field(default=30, ge=1, description="Request timeout in seconds")
-
-    gap_threshold: float = Field(default=3.0, ge=0, le=50, description="Minimum gap percentage")
-    min_price: float = Field(default=0.01, ge=0, description="Minimum stock price filter")
-    scan_schedule: str = Field(default="30 10 * * 1-5", description="Scan cron schedule (AEST)")
-
-
 class Config(BaseSettings):
     """Main application configuration."""
 
@@ -188,7 +164,6 @@ class Config(BaseSettings):
     announcement_gap_strategy: AnnouncementGapStrategyConfig = Field(
         default_factory=AnnouncementGapStrategyConfig
     )
-    ibkr_scanner: IBKRScannerConfig = Field(default_factory=IBKRScannerConfig)
 
     @classmethod
     def load(cls) -> "Config":

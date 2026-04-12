@@ -2,12 +2,8 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from app.events.bus import Event
-
-if TYPE_CHECKING:
-    from app.scanners.gap.models import GapStock
 
 
 @dataclass
@@ -79,29 +75,6 @@ class ImportCompletedEvent(AppEvent):
     skipped: int | None
     total_files: int | None
     status: str
-
-
-@dataclass
-class IBKRScanStartedEvent(AppEvent):
-    """IBKR scanner started running."""
-
-    pass
-
-
-@dataclass
-class IBKRGapFoundEvent(AppEvent):
-    """Gaps found via IBKR scanner."""
-
-    gap_stocks: list["GapStock"]
-
-
-@dataclass
-class IBKRScanCompletedEvent(AppEvent):
-    """IBKR scanner finished running."""
-
-    count: int
-    success: bool
-    error: str | None
 
 
 @dataclass

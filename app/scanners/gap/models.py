@@ -17,7 +17,6 @@ class GapCandidate(BaseModel):
     volume: int = Field(..., description="Today's volume")
     price: float = Field(..., description="Current price")
     timestamp: datetime = Field(default_factory=datetime.now, description="Scan timestamp")
-    conid: int = Field(..., description="IB contract ID")
 
 
 class OpeningRange(BaseModel):
@@ -49,7 +48,6 @@ class ScanStatus(BaseModel):
     running: bool = Field(..., description="Whether scanner is running")
     last_scan_time: datetime | None = Field(None, description="Last scan timestamp")
     last_scan_results: int = Field(0, description="Number of results from last scan")
-    active_scans: int = Field(0, description="Number of active IB scanner requests")
 
 
 class ScanResponse(BaseModel):
@@ -63,10 +61,9 @@ class ScanResponse(BaseModel):
 
 
 class GapStock(BaseModel):
-    """Gap stock from IBKR scanner."""
+    """Gap stock from scanner."""
 
     ticker: str = Field(..., description="Stock ticker symbol")
-    conid: int = Field(..., description="IBKR contract ID")
     gap_percent: float = Field(..., ge=0, description="Gap percentage")
     company_name: str | None = Field(None, description="Company name")
     exchange: str | None = Field(None, description="Listing exchange")

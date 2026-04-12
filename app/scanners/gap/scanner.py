@@ -41,7 +41,6 @@ class GapScanner(ScannerBase):
             running=False,
             last_scan_time=None,
             last_scan_results=0,
-            active_scans=0,
         )
         self._scan_lock = asyncio.Lock()
 
@@ -171,7 +170,6 @@ class GapScanner(ScannerBase):
                     volume=int(bars[-1].volume),
                     price=gap.price,
                     timestamp=gap.sample_time,
-                    conid=0,
                 )
 
                 candidates.append(gap_candidate)
@@ -271,7 +269,6 @@ class GapScanner(ScannerBase):
                             volume=int(bars[i].volume),
                             price=curr_open,
                             timestamp=bars[i].datetime,
-                            conid=0,
                         )
                     )
 

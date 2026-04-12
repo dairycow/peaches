@@ -21,25 +21,14 @@ if [ -f .env ]; then
 fi
 
 echo "=== Validating required environment variables ==="
-required_vars=("TWS_USERID" "TRADING_MODE" "COOLTRADER_USERNAME")
-ibkr_scanner_vars=("IBKR_SCANNER__ENABLED" "IBKR_SCANNER__OAUTH_CONSUMER_KEY" "IBKR_SCANNER__OAUTH_ACCESS_TOKEN" "IBKR_SCANNER__OAUTH_ACCESS_TOKEN_SECRET" "IBKR_SCANNER__OAUTH_DH_PRIME" "IBKR_SCANNER__SIGNATURE_KEY_PATH" "IBKR_SCANNER__ENCRYPTION_KEY_PATH")
+required_vars=("COOLTRADER_USERNAME" "COOLTRADER_PASSWORD")
 
 for var in "${required_vars[@]}"; do
   if [ -z "${!var}" ]; then
-    echo "❌ Required variable missing: $var"
+    echo "Required variable missing: $var"
     exit 1
   fi
 done
-
-if [ "${IBKR_SCANNER__ENABLED}" = "true" ]; then
-  for var in "${ibkr_scanner_vars[@]}"; do
-    if [ -z "${!var}" ]; then
-      echo "❌ IBKR Scanner enabled but variable missing: $var"
-      exit 1
-    fi
-  done
-  echo "IBKR Scanner configuration validated"
-fi
 
 echo "=== Rebuilding and restarting containers ==="
 docker compose down --remove-orphans || true
@@ -57,7 +46,7 @@ timeout 300 bash -c '
     sleep 5
   done
 ' || {
-  echo "❌ Health check failed!"
+  echo "Health check failed!"
   echo "=== Showing recent logs ==="
   docker compose logs --tail=50
   exit 1
