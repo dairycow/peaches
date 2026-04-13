@@ -1,6 +1,6 @@
 """Trading bot application manager."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from loguru import logger
 
@@ -9,20 +9,19 @@ from app.events import get_event_bus, reset_event_bus
 from app.events.handlers import (
     AnnouncementGapHandler,
     DiscordHandler,
-    EventHandler,
     ImportHandler,
 )
 from app.scanners.asx import ScannerConfig
-from app.services import (
-    get_notification_service,
-    get_scheduler_service,
-    reset_scheduler_service,
-)
 from app.services.announcement_gap_strategy_service import AnnouncementGapStrategyService
+from app.services.notification_service import get_notification_service
+from app.services.scheduler_service import get_scheduler_service, reset_scheduler_service
 
 if TYPE_CHECKING:
     from app.events.bus import EventBus
     from app.services.scheduler_service import SchedulerService
+
+    class _HasInitialize(Protocol):
+        async def initialize(self, event_bus: EventBus) -> None: ...
 
 
 class TradingBot:
@@ -65,7 +64,7 @@ class TradingBot:
                 lookback_months=config.announcement_gap_strategy.lookback_months,
             )
 
-            handlers: list[EventHandler] = [
+            handlers: list[_HasInitialize] = [
                 DiscordHandler(notification_service),
                 ImportHandler(csv_dir=config.historical_data.csv_dir),
                 AnnouncementGapHandler(

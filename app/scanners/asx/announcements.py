@@ -1,17 +1,14 @@
 """ASX price-sensitive announcements scanner."""
 
-import asyncio
 import contextlib
 from dataclasses import dataclass
-from typing import Any, TypedDict
+from typing import TypedDict
 
 import aiohttp
 from aiohttp import ClientTimeout
 from bs4 import BeautifulSoup, Tag
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
-
-from app.scanners.base import ScannerBase, ScanResult
 
 
 class Announcement(TypedDict):
@@ -44,36 +41,11 @@ class ASXScanResult:
     error: str | None
 
 
-class ASXAnnouncementScanner(ScannerBase[list[dict[str, Any]]]):
+class ASXAnnouncementScanner:
     """Scanner for ASX announcements."""
 
     def __init__(self, config: ScannerConfig) -> None:
-        """Initialize scanner with configuration.
-
-        Args:
-            config: Scanner configuration
-        """
         self.config = config
-
-    @property
-    def name(self) -> str:
-        """Scanner identifier."""
-        return "asx_announcements"
-
-    async def execute(self) -> ScanResult[list[dict[str, Any]]]:
-        """Execute the scan operation.
-
-        Returns:
-            ScanResult with results or error details
-        """
-        asx_result = await self.fetch_announcements()
-
-        return ScanResult(
-            success=asx_result.success,
-            message=f"Fetched {len(asx_result.announcements)} announcements",
-            data=[dict(a) for a in asx_result.announcements],
-            error=asx_result.error,
-        )
 
     @retry(
         stop=stop_after_attempt(3),
@@ -97,11 +69,8 @@ class ASXAnnouncementScanner(ScannerBase[list[dict[str, Any]]]):
             logger.error(f"Error fetching ASX announcements: {e}")
             return ASXScanResult(announcements=[], success=False, error=str(e))
 
-    async def scrape_announcements(self, fetch_pdf_urls: bool = False) -> list[Announcement]:
+    async def scrape_announcements(self) -> list[Announcement]:
         """Scrape ASX announcements from today.
-
-        Args:
-            fetch_pdf_urls: Whether to fetch direct PDF URLs for announcements
 
         Returns:
             List of announcements
@@ -135,10 +104,6 @@ class ASXAnnouncementScanner(ScannerBase[list[dict[str, Any]]]):
                 announcements.append(ann)
 
         logger.info(f"Found {len(announcements)} announcements")
-
-        if announcements and fetch_pdf_urls:
-            announcements = await self._fetch_pdf_urls(announcements, 5, self.config.timeout)
-
         return announcements
 
     def _parse_row(self, cells: list[Tag], asx_base: str) -> Announcement | None:
@@ -210,74 +175,13 @@ class ASXAnnouncementScanner(ScannerBase[list[dict[str, Any]]]):
         except (ValueError, IndexError):
             return "00:00"
 
-    async def _fetch_pdf_urls(
-        self, announcements: list[Announcement], max_concurrent: int, timeout: int
-    ) -> list[Announcement]:
-        """Fetch direct PDF URLs for all announcements concurrently."""
-        logger.info(f"Fetching {len(announcements)} PDF URLs with max_concurrent={max_concurrent}")
 
-        semaphore = asyncio.Semaphore(max_concurrent)
-
-        async def fetch_one(ann: Announcement) -> Announcement:
-            async with semaphore:
-                try:
-                    async with (
-                        aiohttp.ClientSession() as session,
-                        session.get(
-                            ann["pdf_url"], timeout=ClientTimeout(total=timeout)
-                        ) as response,
-                    ):
-                        response.raise_for_status()
-                        html = await response.text()
-
-                    soup = BeautifulSoup(html, "html.parser")
-                    pdf_input = soup.find("input", {"name": "pdfURL"})
-
-                    if pdf_input and pdf_input.get("value"):
-                        ann["pdf_url"] = str(pdf_input["value"])
-                        logger.debug(f"Got PDF URL for {ann['ticker']}")
-                    else:
-                        logger.warning(f"No PDF URL found for {ann['ticker']}")
-
-                except Exception as e:
-                    logger.error(f"Failed to fetch PDF URL for {ann['ticker']}: {e}")
-
-                return ann
-
-        return await asyncio.gather(*[fetch_one(ann) for ann in announcements])
-
-
-class ASXPriceSensitiveScanner(ScannerBase[list[dict[str, Any]]]):
+class ASXPriceSensitiveScanner:
     """Scanner for ASX price-sensitive announcements."""
 
     def __init__(self, config: ScannerConfig) -> None:
-        """Initialize scanner with configuration.
-
-        Args:
-            config: Scanner configuration
-        """
         self.config = config
         self.announcement_scanner = ASXAnnouncementScanner(config)
-
-    @property
-    def name(self) -> str:
-        """Scanner identifier."""
-        return "asx_price_sensitive"
-
-    async def execute(self) -> ScanResult[list[dict[str, Any]]]:
-        """Execute the scan operation.
-
-        Returns:
-            ScanResult with results or error details
-        """
-        asx_result = await self.fetch_announcements()
-
-        return ScanResult(
-            success=asx_result.success,
-            message=f"Found {len(asx_result.announcements)} price-sensitive announcements",
-            data=[dict(a) for a in asx_result.announcements],
-            error=asx_result.error,
-        )
 
     async def fetch_announcements(self) -> ASXScanResult:
         """Fetch price-sensitive announcements.

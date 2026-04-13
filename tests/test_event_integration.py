@@ -4,9 +4,9 @@ import asyncio
 
 import pytest
 
-from app.events import (
+from app.events import EventBus
+from app.events.events import (
     AnnouncementFoundEvent,
-    EventBus,
     ScanCompletedEvent,
     ScanStartedEvent,
 )

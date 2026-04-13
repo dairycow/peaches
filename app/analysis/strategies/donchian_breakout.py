@@ -6,20 +6,9 @@ and sells when price closes below the N-period low.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from app.analysis.types import BarData
-
-if TYPE_CHECKING:
-    pass
-
-STRATEGY_NAME = "donchian_breakout"
-DEFAULT_PARAMETERS = {
-    "channel_period": 20,
-    "stop_loss_pct": 0.02,
-    "take_profit_pct": 0.04,
-    "risk_per_trade": 0.02,
-}
 
 
 class DonchianBreakoutStrategy:
@@ -31,29 +20,14 @@ class DonchianBreakoutStrategy:
     - Stop loss and take profit
     """
 
-    parameters = [
-        "channel_period",
-        "stop_loss_pct",
-        "take_profit_pct",
-        "risk_per_trade",
-    ]
-
-    variables = [
-        "entry_price",
-        "highest_price",
-        "lowest_price",
-    ]
-
     def __init__(
         self,
         cta_engine: Any,
-        strategy_name: str,
-        vt_symbol: str,
+        strategy_name: str,  # noqa: ARG002
+        vt_symbol: str,  # noqa: ARG002
         setting: dict[str, Any],
     ) -> None:
         self.cta_engine = cta_engine
-        self.strategy_name = strategy_name
-        self.vt_symbol = vt_symbol
 
         self.channel_period: float = setting.get("channel_period", 20)
         self.stop_loss_pct: float = setting.get("stop_loss_pct", 0.02)
@@ -141,6 +115,3 @@ class DonchianBreakoutStrategy:
 
             if bar.close_price > self.highest_price:
                 self.highest_price = bar.close_price
-
-    def write_log(self, msg: str) -> None:
-        pass

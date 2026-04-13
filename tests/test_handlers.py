@@ -6,9 +6,7 @@ from app.events import (
     EventBus,
 )
 from app.events.handlers import DiscordHandler, ImportHandler
-from app.services import (
-    get_notification_service,
-)
+from app.services.notification_service import get_notification_service
 
 
 @pytest.mark.asyncio

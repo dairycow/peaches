@@ -1,11 +1,6 @@
 """Notification service for sending alerts via Discord webhook."""
 
-from typing import TYPE_CHECKING
-
 from loguru import logger
-
-if TYPE_CHECKING:
-    pass
 
 
 class NotificationService:

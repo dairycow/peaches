@@ -1,5 +1,6 @@
 """CLI tool for strategy backtesting and analysis."""
 
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -13,7 +14,7 @@ from app.analysis.data_loader import (
     list_available_symbols,
     load_bars_batch,
 )
-from app.analysis.results import ResultsExporter
+from app.analysis.results import BacktestResult, ResultsExporter
 from app.analysis.scanners import GapScanner, MomentumScanner
 from app.analysis.stock_data import StockData
 from app.analysis.strategies.donchian_breakout import DonchianBreakoutStrategy
@@ -33,6 +34,73 @@ app.add_typer(data_app, name="data")
 app.add_typer(backtest_app, name="backtest")
 app.add_typer(scanner_app, name="scanner")
 app.add_typer(announcement_app, name="announcements")
+
+
+def _parse_date_range(start_date: str, end_date: str) -> tuple[datetime, datetime]:
+    try:
+        return datetime.strptime(start_date, "%Y-%m-%d"), datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError as e:
+        typer.echo(f"Invalid date format: {e}")
+        typer.echo("Use ISO format: YYYY-MM-DD")
+        raise typer.Exit(code=1) from None
+
+
+def _load_stocks(symbols: list[str], start_dt: datetime, end_dt: datetime) -> dict[str, StockData]:
+    bars_dict = load_bars_batch(
+        symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY, lookback_days=100
+    )
+    return {
+        ticker: StockData(ticker, bars, scan_start=start_dt)
+        for ticker, bars in bars_dict.items()
+        if bars
+    }
+
+
+def _output_result(result: dict | list, output: Path | None, label: str) -> None:
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with open(output, "w") as f:
+            json.dump(result, f, indent=2)
+        typer.echo(f"{label} saved to: {output}")
+    else:
+        typer.echo(result)
+
+
+def _build_donchian_params(
+    channel_period: int,
+    stop_loss_pct: float,
+    take_profit_pct: float,
+    risk_per_trade: float,
+) -> dict[str, float | str]:
+    return {
+        "strategy_name": "donchian_breakout",
+        "channel_period": channel_period,
+        "stop_loss_pct": stop_loss_pct,
+        "take_profit_pct": take_profit_pct,
+        "risk_per_trade": risk_per_trade,
+    }
+
+
+def _run_single_backtest(
+    symbol: str,
+    strategy_params: dict[str, float | str],
+    start_dt: datetime,
+    end_dt: datetime,
+    capital: float,
+) -> tuple[BacktestResult | None, str | None]:
+    try:
+        result = run_backtest(
+            symbol=symbol,
+            strategy_class=DonchianBreakoutStrategy,
+            strategy_params=strategy_params,
+            start_date=start_dt,
+            end_date=end_dt,
+            capital=capital,
+        )
+        return result, None
+    except Exception as e:
+        logger.exception(f"Backtest failed for {symbol}")
+        return None, str(e)
 
 
 @data_app.command("list")
@@ -57,11 +125,7 @@ def list_symbols() -> None:
 
 @data_app.command("summary")
 def symbol_summary(symbol: str) -> None:
-    """Show detailed summary for a symbol.
-
-    Args:
-        symbol: Trading symbol (e.g., "BHP")
-    """
+    """Show detailed summary for a symbol."""
     range_info = get_symbol_data_range(symbol)
 
     if not range_info:
@@ -86,73 +150,34 @@ def run_backtest_command(
     capital: float = typer.Option(None, help="Initial capital (default from config)"),
     output_dir: Path | None = typer.Option(None, help="Output directory"),  # noqa: B008
 ) -> None:
-    """Run a single backtest.
-
-    Args:
-        symbol: Trading symbol (e.g., BHP)
-        strategy: Strategy name
-        start_date: Start date (ISO format: YYYY-MM-DD)
-        end_date: End date (ISO format: YYYY-MM-DD)
-        channel_period: Donchian channel period
-        stop_loss_pct: Stop loss percentage
-        take_profit_pct: Take profit percentage
-        risk_per_trade: Risk per trade percentage
-        capital: Initial capital (default from config)
-        output: Output directory
-    """
+    """Run a single backtest."""
     if strategy != "donchian_breakout":
         typer.echo(f"Strategy '{strategy}' not implemented yet.")
         raise typer.Exit(code=1)
 
-    try:
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-    except ValueError as e:
-        typer.echo(f"Invalid date format: {e}")
-        typer.echo("Use ISO format: YYYY-MM-DD")
-        raise typer.Exit(code=1)  # noqa: B904
-
-    if capital is None:
-        capital = config.analysis.default_capital
-
-    strategy_params: dict[str, float | str] = {
-        "strategy_name": strategy,
-        "channel_period": channel_period,
-        "stop_loss_pct": stop_loss_pct,
-        "take_profit_pct": take_profit_pct,
-        "risk_per_trade": risk_per_trade,
-    }
+    start_dt, end_dt = _parse_date_range(start_date, end_date)
+    capital = capital or config.analysis.default_capital
+    strategy_params = _build_donchian_params(
+        channel_period, stop_loss_pct, take_profit_pct, risk_per_trade
+    )
 
     typer.echo(f"Running backtest: {symbol} - {strategy}")
     typer.echo(f"Period: {start_date} to {end_date}")
     typer.echo(f"Capital: ${capital:,.2f}")
     typer.echo("")
 
-    try:
-        result = run_backtest(
-            symbol=symbol,
-            strategy_class=DonchianBreakoutStrategy,
-            strategy_params=strategy_params,
-            start_date=start_dt,
-            end_date=end_dt,
-            capital=capital,
-        )
+    result, error = _run_single_backtest(symbol, strategy_params, start_dt, end_dt, capital)
+    if error or result is None:
+        typer.echo(f"Error: {error}")
+        raise typer.Exit(code=1)
 
-        typer.echo(ResultsExporter.format_summary(result))
+    typer.echo(ResultsExporter.format_summary(result))
 
-        if output_dir:
-            output_path = Path(output_dir) / f"{symbol}_{strategy}_{start_date}_{end_date}"
-            ResultsExporter.export_all(result, output_path)
-            typer.echo("")
-            typer.echo(f"Results exported to: {output_path}")
-
-    except ValueError as e:
-        typer.echo(f"Error: {e}")
-        raise typer.Exit(code=1)  # noqa: B904
-    except Exception as e:
-        logger.exception("Unexpected error during backtest")
-        typer.echo(f"Unexpected error: {e}")
-        raise typer.Exit(code=1)  # noqa: B904
+    if output_dir:
+        output_path = Path(output_dir) / f"{symbol}_{strategy}_{start_date}_{end_date}"
+        ResultsExporter.export_all(result, output_path)
+        typer.echo("")
+        typer.echo(f"Results exported to: {output_path}")
 
 
 @backtest_app.command("batch")
@@ -168,37 +193,17 @@ def run_batch_backtest(
     capital: float = typer.Option(None, help="Initial capital (default from config)"),
     output_dir: Path | None = typer.Option(None, help="Output directory"),  # noqa: B008
 ) -> None:
-    """Run backtests for multiple symbols.
-
-    Args:
-        symbols: Comma-separated symbols (e.g., BHP,CBA,RIO)
-        strategy: Strategy name
-        start_date: Start date (ISO format: YYYY-MM-DD)
-        end_date: End date (ISO format: YYYY-MM-DD)
-        channel_period: Donchian channel period
-        stop_loss_pct: Stop loss percentage
-        take_profit_pct: Take profit percentage
-        risk_per_trade: Risk per trade percentage
-        capital: Initial capital (default from config)
-        output: Output directory
-    """
+    """Run backtests for multiple symbols."""
     if strategy != "donchian_breakout":
         typer.echo(f"Strategy '{strategy}' not implemented yet.")
         raise typer.Exit(code=1)
 
-    try:
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-    except ValueError as e:
-        typer.echo(f"Invalid date format: {e}")
-        typer.echo("Use ISO format: YYYY-MM-DD")
-        raise typer.Exit(code=1)  # noqa: B904
-
-    if capital is None:
-        capital = config.analysis.default_capital
-
-    if output_dir is None:
-        output_dir = Path(config.analysis.output_dir)
+    start_dt, end_dt = _parse_date_range(start_date, end_date)
+    capital = capital or config.analysis.default_capital
+    output_dir = output_dir or Path(config.analysis.output_dir)
+    strategy_params = _build_donchian_params(
+        channel_period, stop_loss_pct, take_profit_pct, risk_per_trade
+    )
 
     symbol_list = [s.strip().upper() for s in symbols.split(",")]
 
@@ -207,53 +212,32 @@ def run_batch_backtest(
     typer.echo(f"Capital: ${capital:,.2f}")
     typer.echo("")
 
-    strategy_params: dict[str, float | str] = {
-        "strategy_name": strategy,
-        "channel_period": channel_period,
-        "stop_loss_pct": stop_loss_pct,
-        "take_profit_pct": take_profit_pct,
-        "risk_per_trade": risk_per_trade,
-    }
-
     results_summary = []
 
     for symbol in symbol_list:
         typer.echo(f"Processing {symbol}...", nl=False)
 
-        try:
-            result = run_backtest(
-                symbol=symbol,
-                strategy_class=DonchianBreakoutStrategy,
-                strategy_params=strategy_params,
-                start_date=start_dt,
-                end_date=end_dt,
-                capital=capital,
-            )
+        result, error = _run_single_backtest(symbol, strategy_params, start_dt, end_dt, capital)
+        if error or result is None:
+            typer.echo(f" x (Error: {error})")
+            continue
 
-            results_summary.append(
-                {
-                    "symbol": symbol,
-                    "total_return": result.metrics["total_return"],
-                    "sharpe_ratio": result.metrics["sharpe_ratio"],
-                    "max_drawdown": result.metrics["max_drawdown"],
-                    "total_trades": result.metrics["total_trades"],
-                }
-            )
+        results_summary.append(
+            {
+                "symbol": symbol,
+                "total_return": result.metrics["total_return"],
+                "sharpe_ratio": result.metrics["sharpe_ratio"],
+                "max_drawdown": result.metrics["max_drawdown"],
+                "total_trades": result.metrics["total_trades"],
+            }
+        )
 
-            typer.echo(
-                f" ✓ (Return: {result.metrics['total_return']:.2%}, Sharpe: {result.metrics['sharpe_ratio']:.2f})"
-            )
+        typer.echo(
+            f" (Return: {result.metrics['total_return']:.2%}, Sharpe: {result.metrics['sharpe_ratio']:.2f})"
+        )
 
-            if output_dir:
-                output_path = output_dir / f"{symbol}_{strategy}_{start_date}_{end_date}"
-                ResultsExporter.export_all(result, output_path)
-
-        except ValueError as e:
-            logger.warning(f"Value error for {symbol}: {e}")
-            typer.echo(f" ✗ (Error: {e})")
-        except Exception as e:
-            logger.exception(f"Unexpected error for {symbol}")
-            typer.echo(f" ✗ (Error: {e})")
+        export_path = output_dir / f"{symbol}_{strategy}_{start_date}_{end_date}"
+        ResultsExporter.export_all(result, export_path)
 
     typer.echo("")
     typer.echo("Batch Summary:")
@@ -292,8 +276,6 @@ def get_announcements(
     }
 
     if output:
-        import json
-
         output.parent.mkdir(parents=True, exist_ok=True)
         with open(output, "w") as f:
             json.dump(result, f, indent=2)
@@ -316,27 +298,12 @@ def scan_momentum(
         typer.echo("Scanners are disabled in configuration")
         raise typer.Exit(code=1)
 
-    try:
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-    except ValueError as e:
-        typer.echo(f"Invalid date format: {e}")
-        typer.echo("Use ISO format: YYYY-MM-DD")
-        raise typer.Exit(code=1)  # noqa: B904
-
+    start_dt, end_dt = _parse_date_range(start_date, end_date)
     symbols = [symbol] if symbol else list_available_symbols()
 
     typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
 
-    bars_dict = load_bars_batch(
-        symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY, lookback_days=100
-    )
-    stocks_dict = {
-        ticker: StockData(ticker, bars, scan_start=start_dt)
-        for ticker, bars in bars_dict.items()
-        if bars
-    }
-
+    stocks_dict = _load_stocks(symbols, start_dt, end_dt)
     if not stocks_dict:
         typer.echo("No data found for any symbols")
         raise typer.Exit(code=1)
@@ -354,15 +321,7 @@ def scan_momentum(
             ),
         }
 
-    if output:
-        import json
-
-        output.parent.mkdir(parents=True, exist_ok=True)
-        with open(output, "w") as f:
-            json.dump(result, f, indent=2)
-        typer.echo(f"Results saved to: {output}")
-    else:
-        typer.echo(result)
+    _output_result(result, output, "Results")
 
 
 @scanner_app.command("consolidation")
@@ -376,28 +335,12 @@ def scan_consolidation(
     output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
 ) -> None:
     """Scan for consolidation patterns."""
-
-    try:
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-    except ValueError as e:
-        typer.echo(f"Invalid date format: {e}")
-        typer.echo("Use ISO format: YYYY-MM-DD")
-        raise typer.Exit(code=1)  # noqa: B904
-
+    start_dt, end_dt = _parse_date_range(start_date, end_date)
     symbols = [symbol] if symbol else list_available_symbols()
 
     typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
 
-    bars_dict = load_bars_batch(
-        symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY, lookback_days=100
-    )
-    stocks_dict = {
-        ticker: StockData(ticker, bars, scan_start=start_dt)
-        for ticker, bars in bars_dict.items()
-        if bars
-    }
-
+    stocks_dict = _load_stocks(symbols, start_dt, end_dt)
     if not stocks_dict:
         typer.echo("No data found for any symbols")
         raise typer.Exit(code=1)
@@ -416,15 +359,7 @@ def scan_consolidation(
             ),
         }
 
-    if output:
-        import json
-
-        output.parent.mkdir(parents=True, exist_ok=True)
-        with open(output, "w") as f:
-            json.dump(result, f, indent=2)
-        typer.echo(f"Results saved to: {output}")
-    else:
-        typer.echo(result)
+    _output_result(result, output, "Results")
 
 
 @scanner_app.command("gaps")
@@ -439,28 +374,12 @@ def scan_gaps(
     output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
 ) -> None:
     """Scan for significant price gaps."""
-
-    try:
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-    except ValueError as e:
-        typer.echo(f"Invalid date format: {e}")
-        typer.echo("Use ISO format: YYYY-MM-DD")
-        raise typer.Exit(code=1)  # noqa: B904
-
+    start_dt, end_dt = _parse_date_range(start_date, end_date)
     symbols = [symbol] if symbol else list_available_symbols()
 
     typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
 
-    bars_dict = load_bars_batch(
-        symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY, lookback_days=100
-    )
-    stocks_dict = {
-        ticker: StockData(ticker, bars, scan_start=start_dt)
-        for ticker, bars in bars_dict.items()
-        if bars
-    }
-
+    stocks_dict = _load_stocks(symbols, start_dt, end_dt)
     if not stocks_dict:
         typer.echo("No data found for any symbols")
         raise typer.Exit(code=1)
@@ -477,15 +396,7 @@ def scan_gaps(
         ],
     }
 
-    if output:
-        import json
-
-        output.parent.mkdir(parents=True, exist_ok=True)
-        with open(output, "w") as f:
-            json.dump(result, f, indent=2)
-        typer.echo(f"Results saved to: {output}")
-    else:
-        typer.echo(result)
+    _output_result(result, output, "Results")
 
 
 @scanner_app.command("biggest-gaps")
@@ -501,32 +412,16 @@ def scan_biggest_gaps(
     output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
 ) -> None:
     """Find biggest close-to-open gaps sorted by absolute value."""
-
     if direction not in ("up", "down", "both"):
         typer.echo("Invalid direction. Use: up, down, or both")
         raise typer.Exit(code=1)
 
-    try:
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-    except ValueError as e:
-        typer.echo(f"Invalid date format: {e}")
-        typer.echo("Use ISO format: YYYY-MM-DD")
-        raise typer.Exit(code=1)  # noqa: B904
-
+    start_dt, end_dt = _parse_date_range(start_date, end_date)
     symbols = [symbol] if symbol else list_available_symbols()
 
     typer.echo(f"Loading data for {len(symbols)} symbol(s)...")
 
-    bars_dict = load_bars_batch(
-        symbols, start_dt, end_dt, Exchange.LOCAL, Interval.DAILY, lookback_days=100
-    )
-    stocks_dict = {
-        ticker: StockData(ticker, bars, scan_start=start_dt)
-        for ticker, bars in bars_dict.items()
-        if bars
-    }
-
+    stocks_dict = _load_stocks(symbols, start_dt, end_dt)
     if not stocks_dict:
         typer.echo("No data found for any symbols")
         raise typer.Exit(code=1)
@@ -554,8 +449,6 @@ def scan_biggest_gaps(
     df = pl.DataFrame(gaps)
 
     if output:
-        import json
-
         result = {
             "period": {"start": start_date, "end": end_date},
             "direction": direction,
@@ -563,10 +456,7 @@ def scan_biggest_gaps(
             "count": len(gaps),
             "gaps": gaps,
         }
-        output.parent.mkdir(parents=True, exist_ok=True)
-        with open(output, "w") as f:
-            json.dump(result, f, indent=2)
-        typer.echo(f"Results saved to: {output}")
+        _output_result(result, output, "Results")
 
     display_df = df.select(
         pl.when(pl.col("direction") == "up").then(pl.lit("+")).otherwise(pl.lit("-")).alias("dir"),

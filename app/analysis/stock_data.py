@@ -73,13 +73,3 @@ class StockData:
         return self.df.filter(
             (pl.col("date") >= start_date.date()) & (pl.col("date") <= end_date.date())
         )
-
-    def get_close_prices(self) -> list[float]:
-        """Get list of close prices.
-
-        Returns:
-            List of close prices
-        """
-        if self.df is None or self.df.is_empty():
-            return []
-        return self.df["close"].to_list()

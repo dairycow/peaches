@@ -4,12 +4,9 @@ import asyncio
 import contextlib
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 from loguru import logger
-
-if TYPE_CHECKING:
-    pass
 
 E = TypeVar("E", bound="Event")
 
@@ -45,12 +42,6 @@ class EventBus:
         self, event_type: type[E], handler: Callable[[E], Coroutine[Any, Any, None]]
     ) -> None:
         """Subscribe to an event type."""
-        await self._subscribe(event_type, handler)
-
-    async def _subscribe(
-        self, event_type: type[E], handler: Callable[[E], Coroutine[Any, Any, None]]
-    ) -> None:
-        """Thread-safe subscribe implementation."""
         async with self._lock:
             if event_type not in self._subscribers:
                 self._subscribers[event_type] = []

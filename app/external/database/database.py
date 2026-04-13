@@ -50,20 +50,13 @@ class DbBarOverview(peewee.Model):
         indexes = ((("symbol", "exchange", "interval"), True),)
 
 
-def _get_db_path() -> str:
-    configured = Path(config.database.path)
-    if configured.is_absolute():
-        return str(configured)
-    return str(configured)
-
-
 def initialise_database() -> str:
     """Initialise the SQLite database and return its path.
 
     Returns:
         Database file path
     """
-    db_path = _get_db_path()
+    db_path = str(Path(config.database.path))
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
     db = peewee.SqliteDatabase(
@@ -290,30 +283,6 @@ class DatabaseManager:
             ).execute()
         except Exception as e:
             logger.error(f"Error updating overview: {e}")
-
-    def get_stats(self) -> dict[str, int | dict[str, int]]:
-        """Get database statistics.
-
-        Returns:
-            Dictionary with statistics
-        """
-        overview = self.get_overview()
-        total_bars = sum(item.count for item in overview)
-        unique_symbols = len({item.symbol for item in overview})
-
-        interval_count: dict[str, int] = {}
-        for item in overview:
-            interval_str = str(item.interval)
-            interval_count[interval_str] = interval_count.get(interval_str, 0) + 1
-
-        stats: dict[str, int | dict[str, int]] = {
-            "total_symbols": len(overview),
-            "unique_symbols": unique_symbols,
-            "total_bars": total_bars,
-            "interval_breakdown": interval_count,
-        }
-
-        return stats
 
     def get_database_stats(self) -> dict[str, str | int | float]:
         """Get database statistics for API.

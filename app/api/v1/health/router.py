@@ -5,12 +5,10 @@ from datetime import datetime
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.container import get_config, get_health_checker
-from app.services.health_service import HealthStatus
+from app.config import config
+from app.services.health_service import HealthStatus, health_checker
 
 router = APIRouter(prefix="/health", tags=["health"])
-get_health_checker_dep = get_health_checker
-get_config_dep = get_config
 
 
 class HealthResponse(BaseModel):
@@ -25,12 +23,7 @@ class HealthResponse(BaseModel):
 
 @router.get("", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
-    """Health check endpoint.
-
-    Returns:
-        HealthResponse with current status
-    """
-    health_checker = get_health_checker_dep()
+    """Health check endpoint."""
     return HealthResponse(
         status=health_checker.get_status(),
         timestamp=datetime.now(),
@@ -42,13 +35,7 @@ async def health_check() -> HealthResponse:
 
 @router.get("/gateway")
 async def check_gateway() -> dict[str, bool | int]:
-    """Check gateway connection status.
-
-    Returns:
-        Dictionary with gateway status
-    """
-    health_checker = get_health_checker_dep()
-    config = get_config_dep()
+    """Check gateway connection status."""
     return {
         "connected": health_checker.gateway_connected,
         "consecutive_failures": health_checker.consecutive_failures,
@@ -58,19 +45,11 @@ async def check_gateway() -> dict[str, bool | int]:
 
 @router.get("/ready")
 async def readiness_check() -> dict[str, str]:
-    """Readiness probe for Kubernetes.
-
-    Returns:
-        Dictionary indicating service is ready
-    """
+    """Readiness probe for Kubernetes."""
     return {"status": "ready"}
 
 
 @router.get("/live")
 async def liveness_check() -> dict[str, str]:
-    """Liveness probe for Kubernetes.
-
-    Returns:
-        Dictionary indicating service is alive
-    """
+    """Liveness probe for Kubernetes."""
     return {"status": "alive"}

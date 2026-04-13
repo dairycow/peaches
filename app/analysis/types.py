@@ -28,4 +28,3 @@ class BarData:
     low_price: float = 0.0
     close_price: float = 0.0
     volume: float = 0.0
-    gateway_name: str = ""

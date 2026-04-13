@@ -1,4 +1,4 @@
-"""Gap scanner orchestration."""
+"""Gap scanner orchestration for API endpoints."""
 
 import asyncio
 from datetime import datetime
@@ -8,9 +8,6 @@ from loguru import logger
 
 from app.analysis.types import Exchange, Interval
 from app.external.database import get_database_manager
-from app.scanners.base import ScannerBase, ScanResult
-from app.scanners.gap.filters import PriceVolumeFilter
-from app.scanners.gap.gap_detector import GapDetector
 from app.scanners.gap.models import (
     GapCandidate,
     OpeningRange,
@@ -18,69 +15,26 @@ from app.scanners.gap.models import (
     ScanResponse,
     ScanStatus,
 )
-from app.scanners.gap.opening_range import OpeningRangeTracker
 
 if TYPE_CHECKING:
     from app.external.database import DatabaseManager
 
 
-class GapScanner(ScannerBase):
+class GapScanner:
     """Main gap scanner orchestrator."""
 
     def __init__(self, db_manager: "DatabaseManager | None" = None) -> None:
-        """Initialize gap scanner.
-
-        Args:
-            db_manager: Database manager instance (optional, will create if None)
-        """
         self.db_manager = db_manager or get_database_manager()
-        self.gap_detector = GapDetector(self.db_manager)
-        self.price_volume_filter = PriceVolumeFilter(self.db_manager)
-        self.or_tracker = OpeningRangeTracker(self.db_manager)
         self._status = ScanStatus(
             running=False,
             last_scan_time=None,
             last_scan_results=0,
         )
         self._scan_lock = asyncio.Lock()
-
-    @property
-    def name(self) -> str:
-        """Scanner identifier."""
-        return "gap_scanner"
-
-    async def execute(self) -> ScanResult:
-        """Execute the scan operation.
-
-        Returns:
-            ScanResult with results or error details
-        """
-        candidates = await self._execute_scan(
-            ScanRequest(
-                gap_threshold=3.0,
-                min_price=1.0,
-                min_volume=100000,
-                max_results=50,
-                scan_direction="both",
-            )
-        )
-
-        return ScanResult(
-            success=True,
-            message=f"Found {len(candidates)} gap candidates",
-            data=[c.__dict__ for c in candidates],
-            error=None,
-        )
+        self._or_cache: dict[str, OpeningRange] = {}
 
     async def start_scan(self, request: ScanRequest) -> ScanResponse:
-        """Start a gap scan with specified parameters.
-
-        Args:
-            request: Scan request with parameters
-
-        Returns:
-            Scan response with results
-        """
+        """Start a gap scan with specified parameters."""
         async with self._scan_lock:
             if self._status.running:
                 logger.warning("Scan already in progress")
@@ -123,14 +77,7 @@ class GapScanner(ScannerBase):
                 self._status.running = False
 
     async def _execute_scan(self, request: ScanRequest) -> list[GapCandidate]:
-        """Execute the gap scan with filtering and opening range tracking.
-
-        Args:
-            request: Scan request parameters
-
-        Returns:
-            List of gap candidates meeting criteria
-        """
+        """Execute the gap scan with filtering."""
         logger.info("Fetching historical bar data for gap detection")
 
         all_bars = self.db_manager.get_overview()
@@ -141,7 +88,7 @@ class GapScanner(ScannerBase):
 
         logger.info(f"Processing {len(all_bars)} symbols for gap detection")
 
-        candidates = []
+        candidates: list[GapCandidate] = []
 
         for bar_overview in all_bars:
             bars = self.db_manager.load_bars(
@@ -150,97 +97,54 @@ class GapScanner(ScannerBase):
                 interval=Interval(bar_overview.interval),
             )
 
-            if not bars:
+            if not bars or len(bars) < 2:
                 continue
 
-            detected_gaps = await self.gap_detector.detect_gaps_from_bars(
-                bars, request.gap_threshold
-            )
+            prev_close = bars[-2].close_price
+            curr_open = bars[-1].open_price
+            gap_percent = (curr_open - prev_close) / prev_close * 100
 
-            for gap in detected_gaps:
-                prev_close = bars[-2].close_price if len(bars) >= 2 else bars[0].open_price
-                gap_percent = self._calculate_gap_percent(prev_close, gap.price)
-
-                gap_candidate = GapCandidate(
-                    symbol=gap.symbol,
-                    gap_percent=gap_percent,
-                    gap_direction="up" if gap_percent >= 0 else "down",
-                    previous_close=prev_close,
-                    open_price=gap.price,
-                    volume=int(bars[-1].volume),
-                    price=gap.price,
-                    timestamp=gap.sample_time,
+            if abs(gap_percent) >= request.gap_threshold:
+                candidates.append(
+                    GapCandidate(
+                        symbol=bars[-1].symbol,
+                        gap_percent=abs(gap_percent),
+                        gap_direction="up" if gap_percent >= 0 else "down",
+                        previous_close=prev_close,
+                        open_price=curr_open,
+                        volume=int(bars[-1].volume),
+                        price=curr_open,
+                        timestamp=bars[-1].datetime,
+                    )
                 )
 
-                candidates.append(gap_candidate)
-
-        logger.info(f"Detected {len(candidates)} raw gap candidates")
-
         if request.min_price > 0 or request.min_volume > 0:
-            symbols = [c.symbol for c in candidates]
-            filtered = await self.price_volume_filter.apply_filters(
-                symbols, request.min_price, request.min_volume
-            )
-
-            candidates = [c for c in candidates if c.symbol in filtered]
+            filtered = []
+            for c in candidates:
+                bars = self.db_manager.load_bars(
+                    symbol=c.symbol,
+                    exchange=Exchange.LOCAL,
+                    interval=Interval.DAILY,
+                )
+                if bars:
+                    latest = bars[-1]
+                    if (
+                        latest.close_price >= request.min_price
+                        and latest.volume >= request.min_volume
+                    ):
+                        filtered.append(c)
+            candidates = filtered
 
         candidates = candidates[: request.max_results]
-
         logger.info(f"Final candidates: {len(candidates)}")
-
         return candidates
 
-    async def wait_for_opening_range(
-        self, candidates: list[GapCandidate]
-    ) -> dict[str, OpeningRange]:
-        """Wait for opening range sampling.
-
-        Args:
-            candidates: List of gap candidates
-
-        Returns:
-            Dictionary of symbol -> opening range
-        """
-        symbols = [c.symbol for c in candidates]
-
-        logger.info(f"Sampling opening range for {len(symbols)} candidates")
-
-        return await self.or_tracker.sample_opening_range(symbols)
-
-    def _calculate_gap_percent(self, prev_close: float, curr_open: float) -> float:
-        """Calculate gap percentage.
-
-        Args:
-            prev_close: Previous day close price
-            curr_open: Current day open price
-
-        Returns:
-            Gap percentage
-        """
-        return (curr_open - prev_close) / prev_close * 100
-
-    async def get_status(self) -> ScanStatus:
-        """Get current scanner status.
-
-        Returns:
-            Scanner status
-        """
-        return self._status
-
     async def get_candidates_for_date(self, date: datetime) -> list[GapCandidate]:
-        """Get gap candidates for a specific date.
-
-        Args:
-            date: Date to query
-
-        Returns:
-            List of gap candidates
-        """
+        """Get gap candidates for a specific date."""
         logger.info(f"Fetching gap candidates for {date}")
 
         all_bars = self.db_manager.get_overview()
-
-        candidates = []
+        candidates: list[GapCandidate] = []
 
         for bar_overview in all_bars:
             bars = self.db_manager.load_bars(
@@ -256,13 +160,12 @@ class GapScanner(ScannerBase):
                 if bars[i].datetime.date() == date.date():
                     prev_close = bars[i - 1].close_price
                     curr_open = bars[i].open_price
-
                     gap_percent = (curr_open - prev_close) / prev_close * 100
 
                     candidates.append(
                         GapCandidate(
                             symbol=bars[i].symbol,
-                            gap_percent=gap_percent,
+                            gap_percent=abs(gap_percent),
                             gap_direction="up" if gap_percent >= 0 else "down",
                             previous_close=prev_close,
                             open_price=curr_open,
@@ -274,3 +177,39 @@ class GapScanner(ScannerBase):
 
         logger.info(f"Found {len(candidates)} candidates for {date}")
         return candidates
+
+    async def get_status(self) -> ScanStatus:
+        """Get current scanner status."""
+        return self._status
+
+    async def sample_opening_ranges(self, symbols: list[str]) -> dict[str, OpeningRange]:
+        """Sample opening range for multiple symbols."""
+        logger.info(f"Sampling opening ranges for {len(symbols)} symbols")
+
+        result: dict[str, OpeningRange] = {}
+
+        for symbol in symbols:
+            try:
+                bars = self.db_manager.load_bars(
+                    symbol=symbol,
+                    exchange=Exchange.LOCAL,
+                    interval=Interval.DAILY,
+                )
+
+                if bars:
+                    target_bar = bars[-1]
+                    orh = max(target_bar.high_price, target_bar.open_price)
+                    orl = min(target_bar.low_price, target_bar.open_price)
+                    result[symbol] = OpeningRange(
+                        symbol=target_bar.symbol,
+                        orh=orh,
+                        orl=orl,
+                        price=target_bar.open_price,
+                        sample_time=target_bar.datetime,
+                    )
+
+            except Exception as e:
+                logger.error(f"Error sampling OR for {symbol}: {e}")
+
+        self._or_cache = result
+        return result

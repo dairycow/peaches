@@ -21,9 +21,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "httpx>=0.27.0",
-    "python-dotenv>=1.0.0",
     "loguru>=0.7.0",
-    "structlog>=25.0.0",
     "tenacity>=9.0.0",
     "polars>=1.0.0",
     "apscheduler>=3.10.0",
@@ -31,7 +29,6 @@ dependencies = [
     "pyarrow>=23.0.0",
     "beautifulsoup4>=4.14.3",
     "lxml>=6.0.2",
-    "requests>=2.31.0",
     "aiohttp>=3.11.0",
 ]
 
@@ -79,7 +76,6 @@ module = [
     "httpx.*",
     "polars.*",
     "bs4.*",
-    "requests.*",
     "aiohttp.*",
 ]
 ignore_missing_imports = true

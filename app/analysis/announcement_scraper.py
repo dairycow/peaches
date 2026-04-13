@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 
-import requests
+import httpx
 from bs4 import BeautifulSoup
 
 ASX_BASE_URL = "https://www.asx.com.au"
@@ -77,7 +77,7 @@ def scrape_announcements_for_year(ticker: str, year: int, timeout: int = 30) -> 
     url = f"{ASX_BASE_URL}/asx/v2/statistics/announcements.do?by=asxCode&asxCode={ticker}&timeframe=Y&year={year}"
 
     try:
-        response = requests.get(url, timeout=timeout)
+        response = httpx.get(url, timeout=timeout)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")

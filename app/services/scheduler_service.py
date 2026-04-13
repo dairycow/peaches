@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from loguru import logger
-from pydantic import BaseModel
 
 from app.config import config
 
@@ -14,27 +13,16 @@ if TYPE_CHECKING:
     from app.events.bus import EventBus
 
 
-class SchedulerConfig(BaseModel):
-    """Scheduler configuration."""
-
-    scan_schedule: str
-    download_schedule: str
-    import_schedule: str
-    announcement_gap_schedule: str
-
-
 class SchedulerService:
     """Unified scheduler for all scheduled operations."""
 
-    def __init__(self, event_bus: "EventBus", scheduler_config: SchedulerConfig) -> None:
+    def __init__(self, event_bus: "EventBus") -> None:
         """Initialize scheduler service.
 
         Args:
             event_bus: EventBus instance
-            scheduler_config: Scheduler configuration
         """
         self.event_bus = event_bus
-        self.scheduler_config = scheduler_config
         self.scheduler = AsyncIOScheduler(timezone="Australia/Sydney")
         self._running = False
         self._lock = asyncio.Lock()
@@ -83,7 +71,7 @@ class SchedulerService:
         self.scheduler.add_job(
             self._trigger_scan,
             trigger=CronTrigger.from_crontab(
-                self.scheduler_config.scan_schedule, timezone="Australia/Sydney"
+                config.scanners.asx.scan_schedule, timezone="Australia/Sydney"
             ),
             id="scan_trigger",
             name="Trigger ASX scan",
@@ -93,7 +81,7 @@ class SchedulerService:
         self.scheduler.add_job(
             self._trigger_download,
             trigger=CronTrigger.from_crontab(
-                self.scheduler_config.download_schedule, timezone="Australia/Sydney"
+                config.cooltrader.download_schedule, timezone="Australia/Sydney"
             ),
             id="download_trigger",
             name="Trigger download",
@@ -103,7 +91,7 @@ class SchedulerService:
         self.scheduler.add_job(
             self._trigger_import,
             trigger=CronTrigger.from_crontab(
-                self.scheduler_config.import_schedule, timezone="Australia/Sydney"
+                config.cooltrader.import_schedule, timezone="Australia/Sydney"
             ),
             id="import_trigger",
             name="Trigger import",
@@ -113,7 +101,7 @@ class SchedulerService:
         self.scheduler.add_job(
             self._trigger_announcement_gap_scan,
             trigger=CronTrigger.from_crontab(
-                self.scheduler_config.announcement_gap_schedule, timezone="Australia/Sydney"
+                config.scanners.asx.announcement_gap_schedule, timezone="Australia/Sydney"
             ),
             id="announcement_gap_trigger",
             name="Trigger announcement gap scan",
@@ -121,10 +109,10 @@ class SchedulerService:
         )
 
         logger.info(
-            f"Scheduler initialized: scan={self.scheduler_config.scan_schedule}, "
-            f"download={self.scheduler_config.download_schedule}, "
-            f"import={self.scheduler_config.import_schedule}, "
-            f"announcement_gap={self.scheduler_config.announcement_gap_schedule}"
+            f"Scheduler initialized: scan={config.scanners.asx.scan_schedule}, "
+            f"download={config.cooltrader.download_schedule}, "
+            f"import={config.cooltrader.import_schedule}, "
+            f"announcement_gap={config.scanners.asx.announcement_gap_schedule}"
         )
 
     async def start(self) -> None:
@@ -171,13 +159,7 @@ async def get_scheduler_service(event_bus: "EventBus") -> SchedulerService:
     """
     global scheduler_service
     if scheduler_service is None:
-        scheduler_config = SchedulerConfig(
-            scan_schedule=config.scanners.asx.scan_schedule,
-            download_schedule=config.cooltrader.download_schedule,
-            import_schedule=config.cooltrader.import_schedule,
-            announcement_gap_schedule=config.scanners.asx.announcement_gap_schedule,
-        )
-        scheduler_service = SchedulerService(event_bus, scheduler_config)
+        scheduler_service = SchedulerService(event_bus)
         await scheduler_service.initialize()
     return scheduler_service
 
