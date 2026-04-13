@@ -6,11 +6,7 @@ from loguru import logger
 
 from app.config import config
 from app.events import get_event_bus, reset_event_bus
-from app.events.handlers import (
-    AnnouncementGapHandler,
-    DiscordHandler,
-    ImportHandler,
-)
+from app.events.handlers import AnnouncementGapHandler, DiscordHandler
 from app.scanners.asx import ScannerConfig
 from app.services.announcement_gap_strategy_service import AnnouncementGapStrategyService
 from app.services.notification_service import get_notification_service
@@ -66,7 +62,6 @@ class TradingBot:
 
             handlers: list[_HasInitialize] = [
                 DiscordHandler(notification_service),
-                ImportHandler(csv_dir=config.historical_data.csv_dir),
                 AnnouncementGapHandler(
                     notification_service=notification_service,
                     strategy_service=announcement_gap_strategy_service,
@@ -78,7 +73,7 @@ class TradingBot:
 
             logger.info(f"Event handlers initialized ({len(handlers)} handlers)")
 
-            if config.historical_data.import_enabled or config.scanners.enabled:
+            if config.scanners.enabled:
                 self.scheduler = await get_scheduler_service(self.event_bus)
                 await self.scheduler.start()
                 logger.info("Scheduler started")

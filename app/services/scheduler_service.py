@@ -35,26 +35,6 @@ class SchedulerService:
             ScanStartedEvent(source="scheduled", correlation_id="scan_cron")
         )
 
-    async def _trigger_download(self) -> None:
-        """Trigger download event."""
-        from app.events.events import DownloadStartedEvent
-
-        await self.event_bus.publish(
-            DownloadStartedEvent(
-                source="scheduled",
-                correlation_id="download_cron",
-                target_date=None,
-            )
-        )
-
-    async def _trigger_import(self) -> None:
-        """Trigger import event."""
-        from app.events.events import ImportStartedEvent
-
-        await self.event_bus.publish(
-            ImportStartedEvent(source="scheduled", correlation_id="import_cron")
-        )
-
     async def _trigger_announcement_gap_scan(self) -> None:
         """Trigger announcement gap scan event."""
         from app.events.events import AnnouncementGapScanStartedEvent
@@ -79,26 +59,6 @@ class SchedulerService:
         )
 
         self.scheduler.add_job(
-            self._trigger_download,
-            trigger=CronTrigger.from_crontab(
-                config.cooltrader.download_schedule, timezone="Australia/Sydney"
-            ),
-            id="download_trigger",
-            name="Trigger download",
-            replace_existing=True,
-        )
-
-        self.scheduler.add_job(
-            self._trigger_import,
-            trigger=CronTrigger.from_crontab(
-                config.cooltrader.import_schedule, timezone="Australia/Sydney"
-            ),
-            id="import_trigger",
-            name="Trigger import",
-            replace_existing=True,
-        )
-
-        self.scheduler.add_job(
             self._trigger_announcement_gap_scan,
             trigger=CronTrigger.from_crontab(
                 config.scanners.asx.announcement_gap_schedule, timezone="Australia/Sydney"
@@ -110,8 +70,6 @@ class SchedulerService:
 
         logger.info(
             f"Scheduler initialized: scan={config.scanners.asx.scan_schedule}, "
-            f"download={config.cooltrader.download_schedule}, "
-            f"import={config.cooltrader.import_schedule}, "
             f"announcement_gap={config.scanners.asx.announcement_gap_schedule}"
         )
 

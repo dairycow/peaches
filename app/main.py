@@ -61,8 +61,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
     logger.info("Starting peaches-trading-bot...")
 
-    db_path = initialise_database()
-    logger.info(f"Database initialised at {db_path}")
+    initialise_database()
 
     _setup_logging()
 
