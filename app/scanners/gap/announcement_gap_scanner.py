@@ -8,13 +8,11 @@ from loguru import logger
 
 from app.analysis.types import Exchange, Interval
 from app.external.database import get_database_manager
-from app.scanners.base import ScannerBase, ScanResult
-from app.scanners.gap.filters import PriceVolumeFilter
-from app.scanners.gap.gap_detector import GapDetector
-from app.scanners.gap.opening_range import OpeningRangeTracker
+from app.scanners.gap.models import OpeningRange
 
 if TYPE_CHECKING:
     from app.external.database import DatabaseManager
+
 
 __all__ = ["AnnouncementGapScanner", "AnnouncementGapCandidate"]
 
@@ -32,7 +30,7 @@ class AnnouncementGapCandidate:
     exchange: Exchange = Exchange.LOCAL
 
 
-class AnnouncementGapScanner(ScannerBase):
+class AnnouncementGapScanner:
     """Scanner for announcement gap breakout candidates.
 
     Filters stocks by:
@@ -46,40 +44,8 @@ class AnnouncementGapScanner(ScannerBase):
         self,
         db_manager: "DatabaseManager | None" = None,
     ) -> None:
-        """Initialize announcement gap scanner.
-
-        Args:
-            db_manager: Database manager instance (optional, will create if None)
-        """
         self.db_manager = db_manager or get_database_manager()
-        self.gap_detector = GapDetector(self.db_manager)
-        self.price_volume_filter = PriceVolumeFilter(self.db_manager)
-        self.or_tracker = OpeningRangeTracker(self.db_manager)
-
-    @property
-    def name(self) -> str:
-        """Scanner identifier."""
-        return "announcement_gap_scanner"
-
-    async def execute(self) -> ScanResult:
-        """Execute the scan operation.
-
-        Returns:
-            ScanResult with results or error details
-        """
-        candidates = await self.scan_candidates(
-            announcement_symbols=[],
-            min_price=0.20,
-            min_gap_pct=0.0,
-            lookback_months=6,
-        )
-
-        return ScanResult(
-            success=True,
-            message=f"Found {len(candidates)} announcement gap candidates",
-            data=[c.__dict__ for c in candidates],
-            error=None,
-        )
+        self._or_cache: dict[str, OpeningRange] = {}
 
     async def scan_candidates(
         self,
@@ -135,19 +101,7 @@ class AnnouncementGapScanner(ScannerBase):
         min_gap_pct: float,
         lookback_months: int,
     ) -> AnnouncementGapCandidate | None:
-        """Evaluate a single symbol against all criteria.
-
-        Args:
-            symbol: Stock symbol
-            headline: Announcement headline
-            ann_time: Announcement timestamp
-            min_price: Minimum price threshold
-            min_gap_pct: Minimum gap percentage
-            lookback_months: Lookback period in months
-
-        Returns:
-            AnnouncementGapCandidate if passes all filters, None otherwise
-        """
+        """Evaluate a single symbol against all criteria."""
         bars = self.db_manager.load_bars(
             symbol=symbol,
             exchange=Exchange.LOCAL,
@@ -192,15 +146,7 @@ class AnnouncementGapScanner(ScannerBase):
         )
 
     def _calculate_six_month_high(self, bars: list, lookback_months: int = 6) -> float:
-        """Calculate N-month high from bar data.
-
-        Args:
-            bars: List of bar data
-            lookback_months: Lookback period in months
-
-        Returns:
-            N-month high price
-        """
+        """Calculate N-month high from bar data."""
         cutoff_days = lookback_months * 30
         cutoff_date = datetime.now(UTC) - timedelta(days=cutoff_days)
 
@@ -215,22 +161,41 @@ class AnnouncementGapScanner(ScannerBase):
         return max(b.high_price for b in relevant_bars)
 
     async def sample_opening_ranges(
-        self, candidates: list[AnnouncementGapCandidate]
+        self,
+        candidates: list[AnnouncementGapCandidate],
     ) -> dict[str, float]:
         """Sample opening range high for candidates.
-
-        Args:
-            candidates: List of announcement gap candidates
 
         Returns:
             Dictionary of symbol -> opening range high
         """
         symbols = [c.symbol for c in candidates]
-
         logger.info(f"Sampling opening ranges for {len(symbols)} candidates")
 
-        or_dict = await self.or_tracker.sample_opening_range(symbols)
+        result: dict[str, float] = {}
 
-        result = {symbol: data.orh for symbol, data in or_dict.items()}
+        for symbol in symbols:
+            try:
+                bars = self.db_manager.load_bars(
+                    symbol=symbol,
+                    exchange=Exchange.LOCAL,
+                    interval=Interval.DAILY,
+                )
+
+                if bars:
+                    target_bar = bars[-1]
+                    orh = max(target_bar.high_price, target_bar.open_price)
+                    orl = min(target_bar.low_price, target_bar.open_price)
+                    result[symbol] = orh
+                    self._or_cache[symbol] = OpeningRange(
+                        symbol=target_bar.symbol,
+                        orh=orh,
+                        orl=orl,
+                        price=target_bar.open_price,
+                        sample_time=target_bar.datetime,
+                    )
+
+            except Exception as e:
+                logger.error(f"Error sampling OR for {symbol}: {e}")
 
         return result

@@ -1,7 +1,6 @@
 """Pydantic models for gap scanner."""
 
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +10,7 @@ class GapCandidate(BaseModel):
 
     symbol: str = Field(..., description="Stock symbol")
     gap_percent: float = Field(..., ge=0, description="Gap percentage")
-    gap_direction: Literal["up", "down"] = Field(..., description="Gap direction")
+    gap_direction: str = Field(..., description="Gap direction")
     previous_close: float = Field(..., description="Previous day close price")
     open_price: float = Field(..., description="Today's open price")
     volume: int = Field(..., description="Today's volume")
@@ -36,10 +35,6 @@ class ScanRequest(BaseModel):
     min_price: float = Field(default=1.0, ge=0.01, description="Minimum stock price")
     min_volume: int = Field(default=100000, gt=0, description="Minimum daily volume")
     max_results: int = Field(default=50, ge=1, le=50, description="Maximum results to return")
-    scan_direction: Literal["up", "down", "both"] = Field(
-        default="both",
-        description="Gap direction to scan for",
-    )
 
 
 class ScanStatus(BaseModel):
@@ -58,13 +53,3 @@ class ScanResponse(BaseModel):
     candidates_count: int = Field(..., description="Number of candidates found")
     estimated_completion: datetime | None = Field(None, description="Estimated completion time")
     message: str = Field(..., description="Status message")
-
-
-class GapStock(BaseModel):
-    """Gap stock from scanner."""
-
-    ticker: str = Field(..., description="Stock ticker symbol")
-    gap_percent: float = Field(..., ge=0, description="Gap percentage")
-    company_name: str | None = Field(None, description="Company name")
-    exchange: str | None = Field(None, description="Listing exchange")
-    timestamp: datetime = Field(default_factory=datetime.now, description="Detection timestamp")

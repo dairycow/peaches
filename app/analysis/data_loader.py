@@ -1,6 +1,7 @@
 """Data loading utilities for analysis."""
 
 from datetime import datetime
+from pathlib import Path
 
 import polars as pl
 from loguru import logger
@@ -9,22 +10,10 @@ from app.analysis.types import BarData, Exchange, Interval
 from app.config import config
 
 
-def _get_db_path() -> str:
-    from pathlib import Path
-
-    configured = Path(config.database.path)
-    if configured.exists():
-        return str(configured)
-    fallback = Path("data-prod/trading.db")
-    if fallback.exists():
-        return str(fallback.resolve())
-    return str(configured)
-
-
 def _query_df(query: str, params: list[str] | None = None) -> pl.DataFrame:
     import sqlite3
 
-    db_path = _get_db_path()
+    db_path = str(Path(config.database.path))
     conn = sqlite3.connect(db_path)
     cur = conn.execute(query, params or [])
     cols = [d[0] for d in cur.description]

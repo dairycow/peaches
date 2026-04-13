@@ -85,19 +85,6 @@ class AnnouncementGapScanStartedEvent(AppEvent):
 
 
 @dataclass
-class AnnouncementGapCandidateFoundEvent(AppEvent):
-    """Single announcement gap candidate found."""
-
-    symbol: str
-    gap_pct: float
-    six_month_high: float
-    current_price: float
-    announcement_headline: str
-    announcement_time: datetime
-    exchange: str = "ASX"
-
-
-@dataclass
 class AnnouncementGapScanCompletedEvent(AppEvent):
     """Announcement gap scan finished."""
 

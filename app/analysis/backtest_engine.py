@@ -74,29 +74,22 @@ class BacktestPortfolio:
         if total > self.peak_equity:
             self.peak_equity = total
 
-    @property
-    def final_equity(self) -> float:
-        return self.equity
-
 
 class CtaEngine:
-    """Minimal CTA engine stub for strategy compatibility."""
+    """Minimal CTA engine for strategy compatibility."""
 
     def __init__(self, portfolio: BacktestPortfolio, capital: float) -> None:
         self.portfolio = portfolio
         self.capital = capital
         self.current_bar: BarData | None = None
 
-    def buy(self, price: float, volume: float, stop: bool = False) -> None:  # noqa: ARG002
+    def buy(self, price: float, volume: float) -> None:
         if self.current_bar:
             self.portfolio.buy(price, int(volume), self.current_bar)
 
-    def sell(self, price: float, volume: float, stop: bool = False) -> None:  # noqa: ARG002
+    def sell(self, price: float, volume: float) -> None:
         if self.current_bar:
             self.portfolio.sell(price, int(volume), self.current_bar)
-
-    def write_log(self, msg: str) -> None:
-        logger.debug(msg)
 
 
 def run_strategy_backtest(
