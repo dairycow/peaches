@@ -43,41 +43,6 @@ class ScanCompletedEvent(AppEvent):
 
 
 @dataclass
-class DownloadStartedEvent(AppEvent):
-    """Download started."""
-
-    target_date: str | None
-
-
-@dataclass
-class DownloadCompletedEvent(AppEvent):
-    """Download finished."""
-
-    filepath: str | None
-    status: str
-    reason: str | None
-
-
-@dataclass
-class ImportStartedEvent(AppEvent):
-    """CSV import started."""
-
-    pass
-
-
-@dataclass
-class ImportCompletedEvent(AppEvent):
-    """CSV import finished."""
-
-    total_bars: int | None
-    success: int | None
-    errors: int | None
-    skipped: int | None
-    total_files: int | None
-    status: str
-
-
-@dataclass
 class AnnouncementGapScanStartedEvent(AppEvent):
     """Announcement gap scan started."""
 

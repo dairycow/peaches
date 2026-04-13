@@ -9,7 +9,9 @@ class DatabaseConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="DATABASE_")
 
-    path: str = Field(default="/app/data/trading.db", description="SQLite database path")
+    path: str = Field(
+        default="/home/hf/cooltrader/data/cooltrader.db", description="SQLite database path"
+    )
 
 
 class LoggingConfig(BaseSettings):
@@ -28,34 +30,6 @@ class HealthCheckConfig(BaseSettings):
     unhealthy_threshold: int = Field(
         default=3, ge=1, description="Consecutive failures before unhealthy"
     )
-
-
-class HistoricalDataConfig(BaseSettings):
-    """Historical data configuration."""
-
-    csv_dir: str = Field(default="/app/data/raw/cooltrader", description="CSV data directory")
-    import_enabled: bool = Field(default=True, description="Enable data import")
-
-
-class CoolTraderConfig(BaseSettings):
-    """CoolTrader data provider configuration."""
-
-    username: str = Field(default="", description="CoolTrader username")
-    password: str = Field(default="", description="CoolTrader password")
-    base_url: str = Field(
-        default="https://data.cooltrader.com.au", description="CoolTrader API base URL"
-    )
-    download_schedule: str = Field(default="55 9 * * *", description="Download cron schedule")
-    import_schedule: str = Field(default="5 10 * * *", description="Import cron schedule")
-
-
-class AnalysisConfig(BaseSettings):
-    """Backtesting analysis configuration."""
-
-    output_dir: str = Field(default="/app/data/analysis", description="Analysis output directory")
-    default_capital: float = Field(default=1_000_000, description="Default backtest capital")
-    commission_rate: float = Field(default=0.001, description="Commission rate")
-    fixed_commission: float = Field(default=6.6, description="Fixed commission per trade ($6.60)")
 
 
 class ASXScannerConfig(BaseSettings):
@@ -117,9 +91,6 @@ class Config(BaseSettings):
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     health: HealthCheckConfig = Field(default_factory=HealthCheckConfig)
-    historical_data: HistoricalDataConfig = Field(default_factory=HistoricalDataConfig)
-    cooltrader: CoolTraderConfig = Field(default_factory=CoolTraderConfig)
-    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig)
     scanners: ScannerServiceConfig = Field(default_factory=ScannerServiceConfig)
     announcement_gap_strategy: AnnouncementGapStrategyConfig = Field(
         default_factory=AnnouncementGapStrategyConfig

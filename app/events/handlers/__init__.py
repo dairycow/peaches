@@ -2,10 +2,8 @@
 
 from app.events.handlers.announcement_gap_handler import AnnouncementGapHandler
 from app.events.handlers.discord_handler import DiscordHandler
-from app.events.handlers.import_handler import ImportHandler
 
 __all__ = [
     "AnnouncementGapHandler",
     "DiscordHandler",
-    "ImportHandler",
 ]
