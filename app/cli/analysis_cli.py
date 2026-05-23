@@ -1,6 +1,7 @@
 """CLI tool for data management and analysis."""
 
 import json
+import sys
 from pathlib import Path
 
 import typer
@@ -59,27 +60,59 @@ def get_announcements(
     period: str = typer.Option(
         "1M", help="Period: 1M, 3M, 6M, 1Y, YYYY, YYYY-MM, YYYY-MM-DD to YYYY-MM-DD"
     ),
+    price_sensitive_only: bool = typer.Option(
+        False, "--price-sensitive-only", "-p", help="Filter to price-sensitive only"
+    ),
+    output_format: str = typer.Option(
+        "json", "--format", "-f", help="Output format: json or table"
+    ),
     output: Path | None = typer.Option(None, "--output", "-o", help="Output JSON file"),  # noqa: B008
 ) -> None:
     """Get ASX announcements for a ticker."""
     scraper = AnnouncementScraper(timeout=30)
     start_date, end_date = scraper.parse_date_range(period)
-    announcements = scraper.get_announcements(ticker, start_date, end_date)
+    result = scraper.get_announcements(ticker, start_date, end_date)
 
-    result = {
-        "ticker": ticker,
-        "period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
-        "count": len(announcements),
-        "announcements": announcements,
-    }
+    if not result.success:
+        typer.echo(f"Error: {result.error}", err=True)
+        raise typer.Exit(code=1)
 
-    if output:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        with open(output, "w") as f:
-            json.dump(result, f, indent=2)
-        typer.echo(f"Announcements saved to: {output}")
+    announcements = result.announcements
+    if price_sensitive_only:
+        announcements = [a for a in announcements if a.price_sensitive]
+
+    if output_format == "table":
+        _print_table(result.ticker, announcements)
     else:
-        typer.echo(result)
+        output_data = {
+            "ticker": result.ticker,
+            "period": {"start": result.period_start, "end": result.period_end},
+            "count": len(announcements),
+            "announcements": [a.model_dump() for a in announcements],
+        }
+
+        if output:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            with open(output, "w") as f:
+                json.dump(output_data, f, indent=2)
+            typer.echo(f"Announcements saved to: {output}")
+        else:
+            typer.echo(json.dumps(output_data, indent=2))
+
+
+def _print_table(ticker: str, announcements: list) -> None:
+    """Print announcements in human-readable table format."""
+    if not announcements:
+        typer.echo(f"No announcements found for {ticker}.")
+        return
+
+    typer.echo(f"\nAnnouncements for {ticker} ({len(announcements)} results)\n")
+    typer.echo(f"{'Date':<12} {'Time':<6} {'Sensitive':<10} {'Pages':<6} Headline")
+    typer.echo("-" * 70)
+
+    for ann in announcements:
+        sensitive = "YES" if ann.price_sensitive else ""
+        typer.echo(f"{ann.date:<12} {ann.time:<6} {sensitive:<10} {ann.pages:<6} {ann.headline}")
 
 
 def cli() -> None:
